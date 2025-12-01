@@ -1,0 +1,800 @@
+// ignore_for_file: unused_local_variable
+
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'Matchschedule.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+
+Future<String?> _loadTeamLogo(String teamNumber) async {
+  // If your teamNumber in Firestore is "1" but logos are "001.png",
+  // uncomment the next line:
+  // teamNumber = teamNumber.padLeft(3, '0');
+
+  final storage = FirebaseStorage.instance;
+  const exts = ['png', 'jpg', 'jpeg', 'jfif', 'webp'];
+
+  for (final ext in exts) {
+    try {
+      final ref = storage.ref().child('team_logos/$teamNumber.$ext');
+      final url = await ref.getDownloadURL();
+      return url; // found a working extension
+    } on FirebaseException catch (e) {
+      if (e.code == 'object-not-found') {
+        // Try next extension
+        continue;
+      } else {
+        rethrow; // some other error, bubble up
+      }
+    }
+  }
+
+  // No logo found with any extension
+  return null;
+}
+
+class _TeamMatchesCard extends StatelessWidget {
+  final String teamNumber;
+
+  const _TeamMatchesCard({required this.teamNumber});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141414),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.event, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Match Schedule',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          StreamBuilder<QuerySnapshot>(
+            stream:
+                FirebaseFirestore.instance
+                    .collection('Match Schedule')
+                    .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Error loading matches',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.redAccent),
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No matches found.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  ),
+                );
+              }
+
+              final List<Map<String, dynamic>> teamMatches = [];
+
+              for (final doc in snapshot.data!.docs) {
+                final docData = doc.data() as Map<String, dynamic>? ?? {};
+                final matchesField = docData['matches'];
+
+                if (matchesField is Map<String, dynamic>) {
+                  matchesField.forEach((key, value) {
+                    if (value is Map<String, dynamic>) {
+                      _addIfTeamInMatch(
+                        teamMatches,
+                        value,
+                        divisionId: doc.id,
+                        teamNumber: teamNumber,
+                      );
+                    }
+                  });
+                } else if (matchesField is List) {
+                  for (final element in matchesField) {
+                    if (element is Map<String, dynamic>) {
+                      if (element.containsKey('matchNumber')) {
+                        _addIfTeamInMatch(
+                          teamMatches,
+                          element,
+                          divisionId: doc.id,
+                          teamNumber: teamNumber,
+                        );
+                      } else if (element.isNotEmpty) {
+                        final inner = element.values.first;
+                        if (inner is Map<String, dynamic>) {
+                          _addIfTeamInMatch(
+                            teamMatches,
+                            inner,
+                            divisionId: doc.id,
+                            teamNumber: teamNumber,
+                          );
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              if (teamMatches.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No matches for this team yet.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  ),
+                );
+              }
+
+              teamMatches.sort(
+                (a, b) =>
+                    a['matchId'].toString().compareTo(b['matchId'].toString()),
+              );
+
+              return Column(
+                children:
+                    teamMatches.map((m) {
+                      final redTeams =
+                          (m['redTeams'] as List)
+                              .map((e) => e.toString())
+                              .toList();
+                      final blueTeams =
+                          (m['blueTeams'] as List)
+                              .map((e) => e.toString())
+                              .toList();
+                      final int redScore = m['redScore'] as int;
+                      final int blueScore = m['blueScore'] as int;
+
+                      final bool redWins = redScore > blueScore;
+                      final bool blueWins = blueScore > redScore;
+
+                      final bool inRed = redTeams.contains(teamNumber);
+                      final bool inBlue = blueTeams.contains(teamNumber);
+
+                      String resultLabel;
+                      Color resultColor;
+
+                      if (redScore == blueScore && redScore == 0) {
+                        resultLabel = ' ';
+                        resultColor = Colors.white70;
+                      } else if (redScore == blueScore) {
+                        resultLabel = 'Draw';
+                        resultColor = Colors.white70;
+                      } else if ((redWins && inRed) || (blueWins && inBlue)) {
+                        resultLabel = 'Win';
+                        resultColor = Colors.greenAccent;
+                      } else {
+                        resultLabel = 'Loss';
+                        resultColor = Colors.redAccent;
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A1A),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Match ${m['matchId']}  •  ${m['division'] ?? ''}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                ...redTeams.map(
+                                  (t) => _TeamChip(
+                                    teamNumber: t,
+                                    background: const Color(0xFFE53935),
+                                    onTap: () => (),
+                                  ),
+                                ),
+                                ...blueTeams.map(
+                                  (t) => _TeamChip(
+                                    teamNumber: t,
+                                    background: const Color(0xFF1E88E5),
+                                    onTap: () => (),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '$redScore - $blueScore',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                Text(
+                                  resultLabel,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: resultColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamChip extends StatelessWidget {
+  final String teamNumber;
+  final Color background;
+  final VoidCallback onTap;
+
+  const _TeamChip({
+    required this.teamNumber,
+    required this.background,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 700;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 4 : 10,
+          vertical: isMobile ? 4 : 6,
+        ),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          teamNumber,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: isMobile ? 9 : 13,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+void _addIfTeamInMatch(
+  List<Map<String, dynamic>> list,
+  Map<String, dynamic> inner, {
+  required String divisionId,
+  required String teamNumber,
+}) {
+  final redTeams =
+      (inner['red'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
+  final blueTeams =
+      (inner['blue'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
+
+  if (!redTeams.contains(teamNumber) && !blueTeams.contains(teamNumber)) {
+    return;
+  }
+
+  final score = inner['score'];
+  int redScore = 0;
+  int blueScore = 0;
+  if (score is Map<String, dynamic>) {
+    redScore = (score['red'] as num?)?.toInt() ?? 0;
+    blueScore = (score['blue'] as num?)?.toInt() ?? 0;
+  }
+
+  list.add({
+    'matchId': inner['matchNumber']?.toString() ?? '',
+    'division': divisionId,
+    'redTeams': redTeams,
+    'blueTeams': blueTeams,
+    'redScore': redScore,
+    'blueScore': blueScore,
+  });
+}
+
+class TeamDetailPage extends StatelessWidget {
+  final String teamNumber;
+  final String teamDocId;
+
+  const TeamDetailPage({
+    super.key,
+    required this.teamNumber,
+    required this.teamDocId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Back to Dashboard',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream:
+            FirebaseFirestore.instance
+                .collection('teams')
+                .doc(teamDocId)
+                .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Error loading team details',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.redAccent),
+              ),
+            );
+          }
+
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return Center(
+              child: Text(
+                'No details found for team $teamNumber',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+              ),
+            );
+          }
+
+          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+
+          final teamName =
+              (data['teamName'] ?? data['name'] ?? 'Team $teamNumber')
+                  .toString();
+          final teamType = (data['teamType'] ?? data['type'])?.toString();
+          final location = (data['cityState'] ?? data['city'])?.toString();
+
+          final leaguePosition =
+              (data['leaguePosition'] ?? data['rank'])?.toString();
+          final autoScore =
+              (data['autonomousScore'] ?? data['autoScore'])?.toString();
+
+          final details = data['details']?.toString() ?? '';
+
+          final int redCardCount = (data['redCardCount'] as num?)?.toInt() ?? 0;
+          final int yellowCardCount =
+              (data['yellowCards'] as num?)?.toInt() ?? 0;
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 1000;
+
+              if (isWide) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _TeamInfoCard(
+                          teamName: teamName,
+                          teamNumber: teamNumber,
+                          teamType: teamType,
+                          location: location,
+                          details: details,
+                          redCardCount: redCardCount,
+                          yellowCardCount: yellowCardCount,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                              stream:
+                                  FirebaseFirestore.instance
+                                      .collection('Rankings')
+                                      .snapshots(),
+                              builder: (context, rankingsSnap) {
+                                String? leaguePosFromRankings;
+
+                                if (rankingsSnap.hasData) {
+                                  for (final doc in rankingsSnap.data!.docs) {
+                                    final map = doc.data();
+                                    final entry = map[teamNumber];
+                                    if (entry is Map<String, dynamic>) {
+                                      final prevRank =
+                                          (entry['previousRank'] as num?)
+                                              ?.toInt();
+                                      if (prevRank != null) {
+                                        leaguePosFromRankings =
+                                            prevRank.toString();
+                                        break;
+                                      }
+                                    }
+                                  }
+                                }
+
+                                return _StandingsCard(
+                                  leaguePosition: leaguePosFromRankings,
+                                  autoScore: autoScore,
+                                  accent: cs.primary,
+                                );
+                              },
+                            ),
+
+                            const SizedBox(height: 16),
+                            _TeamMatchesCard(teamNumber: teamNumber),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TeamInfoCard(
+                        teamName: teamName,
+                        teamNumber: teamNumber,
+                        teamType: teamType,
+                        location: location,
+                        details: details,
+                        redCardCount: redCardCount,
+                        yellowCardCount: yellowCardCount,
+                      ),
+
+                      const SizedBox(height: 16),
+                      StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream:
+                            FirebaseFirestore.instance
+                                .collection('Rankings')
+                                .snapshots(),
+                        builder: (context, rankingsSnap) {
+                          String? leaguePosFromRankings;
+
+                          if (rankingsSnap.hasData) {
+                            for (final doc in rankingsSnap.data!.docs) {
+                              final map = doc.data();
+                              final entry = map[teamNumber];
+                              if (entry is Map<String, dynamic>) {
+                                final prevRank =
+                                    (entry['previousRank'] as num?)?.toInt();
+                                if (prevRank != null) {
+                                  leaguePosFromRankings = prevRank.toString();
+                                  break;
+                                }
+                              }
+                            }
+                          }
+
+                          return _StandingsCard(
+                            leaguePosition: leaguePosFromRankings,
+                            autoScore: autoScore,
+                            accent: cs.primary,
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 16),
+                      _TeamMatchesCard(teamNumber: teamNumber),
+                    ],
+                  ),
+                );
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TeamInfoCard extends StatelessWidget {
+  final String teamName;
+  final String teamNumber;
+  final String? teamType;
+  final String? location;
+  final String details;
+
+  final int redCardCount;
+  final int yellowCardCount;
+
+  const _TeamInfoCard({
+    required this.teamName,
+    required this.teamNumber,
+    required this.teamType,
+    required this.location,
+    required this.details,
+    required this.redCardCount,
+    required this.yellowCardCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121212),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  teamName,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              if (redCardCount > 0)
+                Row(
+                  children: List.generate(
+                    redCardCount,
+                    (_) => Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      width: 8,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+
+              if (redCardCount > 0 && yellowCardCount > 0)
+                const SizedBox(width: 4),
+
+              if (yellowCardCount > 0)
+                Row(
+                  children: List.generate(
+                    yellowCardCount,
+                    (_) => Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      width: 8,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.yellow,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 4),
+          Text(
+            'Team #$teamNumber',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(height: 24),
+
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Team Type',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      teamType?.isNotEmpty == true ? teamType! : '—',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 24),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Location',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      location?.isNotEmpty == true ? location! : '—',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          Divider(color: Colors.white.withOpacity(0.12), height: 1),
+          const SizedBox(height: 16),
+
+          Text(
+            'Team Details',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            details.isNotEmpty
+                ? details
+                : 'No additional details have been added for this team yet.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StandingsCard extends StatelessWidget {
+  final String? leaguePosition;
+  final String? autoScore;
+  final Color accent;
+
+  const _StandingsCard({
+    required this.leaguePosition,
+    required this.autoScore,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF141414),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.emoji_events, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                'Standings',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          Text(
+            'League Position',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            leaguePosition != null ? '#$leaguePosition' : '—',
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Text(
+            'Autonomous Score',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            autoScore != null ? '$autoScore pts' : '—',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
