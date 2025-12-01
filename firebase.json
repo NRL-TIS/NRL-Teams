@@ -1,1 +1,37 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"nrl-championship","appId":"1:929721104545:android:b93bd49c98610e74bc58e0","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"nrl-championship","configurations":{"android":"1:929721104545:android:b93bd49c98610e74bc58e0","ios":"1:929721104545:ios:0cff76ca72aa0eb2bc58e0","web":"1:929721104545:web:cc414db9e5413f7fbc58e0"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "nrl-championship",
+          "appId": "1:929721104545:android:b93bd49c98610e74bc58e0",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nrl-championship",
+          "configurations": {
+            "android": "1:929721104545:android:b93bd49c98610e74bc58e0",
+            "ios": "1:929721104545:ios:0cff76ca72aa0eb2bc58e0",
+            "web": "1:929721104545:web:cc414db9e5413f7fbc58e0"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

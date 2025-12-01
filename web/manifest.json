@@ -1,6 +1,6 @@
 {
-    "name": "nrl_app",
-    "short_name": "nrl_app",
+    "name": "National Robotics League",
+    "short_name": "NRL",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -2,6 +2,7 @@
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'individual_match.dart';
 // import 'Matchschedule.dart';
 
 class _TeamMatchesCard extends StatelessWidget {
@@ -36,204 +37,8 @@ class _TeamMatchesCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-
-          StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('Match Schedule')
-                    .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Error loading matches',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.redAccent),
-                  ),
-                );
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No matches found.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                  ),
-                );
-              }
-
-              final List<Map<String, dynamic>> teamMatches = [];
-
-              for (final doc in snapshot.data!.docs) {
-                final docData = doc.data() as Map<String, dynamic>? ?? {};
-                final matchesField = docData['matches'];
-
-                if (matchesField is Map<String, dynamic>) {
-                  matchesField.forEach((key, value) {
-                    if (value is Map<String, dynamic>) {
-                      _addIfTeamInMatch(
-                        teamMatches,
-                        value,
-                        divisionId: doc.id,
-                        teamNumber: teamNumber,
-                      );
-                    }
-                  });
-                } else if (matchesField is List) {
-                  for (final element in matchesField) {
-                    if (element is Map<String, dynamic>) {
-                      if (element.containsKey('matchNumber')) {
-                        _addIfTeamInMatch(
-                          teamMatches,
-                          element,
-                          divisionId: doc.id,
-                          teamNumber: teamNumber,
-                        );
-                      } else if (element.isNotEmpty) {
-                        final inner = element.values.first;
-                        if (inner is Map<String, dynamic>) {
-                          _addIfTeamInMatch(
-                            teamMatches,
-                            inner,
-                            divisionId: doc.id,
-                            teamNumber: teamNumber,
-                          );
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-
-              if (teamMatches.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No matches for this team yet.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                  ),
-                );
-              }
-
-              teamMatches.sort(
-                (a, b) =>
-                    a['matchId'].toString().compareTo(b['matchId'].toString()),
-              );
-
-              return Column(
-                children:
-                    teamMatches.map((m) {
-                      final redTeams =
-                          (m['redTeams'] as List)
-                              .map((e) => e.toString())
-                              .toList();
-                      final blueTeams =
-                          (m['blueTeams'] as List)
-                              .map((e) => e.toString())
-                              .toList();
-                      final int redScore = m['redScore'] as int;
-                      final int blueScore = m['blueScore'] as int;
-
-                      final bool redWins = redScore > blueScore;
-                      final bool blueWins = blueScore > redScore;
-
-                      final bool inRed = redTeams.contains(teamNumber);
-                      final bool inBlue = blueTeams.contains(teamNumber);
-
-                      String resultLabel;
-                      Color resultColor;
-
-                      if (redScore == blueScore && redScore == 0) {
-                        resultLabel = ' ';
-                        resultColor = Colors.white70;
-                      } else if (redScore == blueScore) {
-                        resultLabel = 'Draw';
-                        resultColor = Colors.white70;
-                      } else if ((redWins && inRed) || (blueWins && inBlue)) {
-                        resultLabel = 'Win';
-                        resultColor = Colors.greenAccent;
-                      } else {
-                        resultLabel = 'Loss';
-                        resultColor = Colors.redAccent;
-                      }
-
-                      return Container(
-                        margin: const EdgeInsets.only(top: 10),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Match ${m['matchId']}  •  ${m['division'] ?? ''}',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                ...redTeams.map(
-                                  (t) => _TeamChip(
-                                    teamNumber: t,
-                                    background: const Color(0xFFE53935),
-                                    onTap: () => (),
-                                  ),
-                                ),
-                                ...blueTeams.map(
-                                  (t) => _TeamChip(
-                                    teamNumber: t,
-                                    background: const Color(0xFF1E88E5),
-                                    onTap: () => (),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '$redScore - $blueScore',
-                                  style: Theme.of(context).textTheme.bodyLarge
-                                      ?.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                Text(
-                                  resultLabel,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: resultColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-              );
-            },
-          ),
+          // Use the IndividualMatchSchedule widget with the new logic
+          IndividualMatchSchedule(teamNumber: teamNumber),
         ],
       ),
     );
@@ -278,39 +83,6 @@ class _TeamChip extends StatelessWidget {
       ),
     );
   }
-}
-
-void _addIfTeamInMatch(
-  List<Map<String, dynamic>> list,
-  Map<String, dynamic> inner, {
-  required String divisionId,
-  required String teamNumber,
-}) {
-  final redTeams =
-      (inner['red'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
-  final blueTeams =
-      (inner['blue'] as List?)?.map((e) => e.toString()).toList() ?? <String>[];
-
-  if (!redTeams.contains(teamNumber) && !blueTeams.contains(teamNumber)) {
-    return;
-  }
-
-  final score = inner['score'];
-  int redScore = 0;
-  int blueScore = 0;
-  if (score is Map<String, dynamic>) {
-    redScore = (score['red'] as num?)?.toInt() ?? 0;
-    blueScore = (score['blue'] as num?)?.toInt() ?? 0;
-  }
-
-  list.add({
-    'matchId': inner['matchNumber']?.toString() ?? '',
-    'division': divisionId,
-    'redTeams': redTeams,
-    'blueTeams': blueTeams,
-    'redScore': redScore,
-    'blueScore': blueScore,
-  });
 }
 
 class TeamDetailPage extends StatelessWidget {
@@ -663,6 +435,23 @@ class _TeamInfoCard extends StatelessWidget {
                       width: 52,
                       height: 52,
                       fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white38),
+                            ),
+                          ),
+                        );
+                      },
                       errorBuilder: (context, error, stackTrace) {
                         debugPrint(
                           '🚫 Error displaying logo image for $teamNumber: $error',
@@ -884,6 +673,15 @@ class _TeamInfoCard extends StatelessWidget {
                     child: Image.network(
                       url,
                       fit: BoxFit.contain, // 👈 keeps full logo, consistent box
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white38),
+                          ),
+                        );
+                      },
                       errorBuilder: (context, error, stackTrace) {
                         debugPrint(
                           '🚫 Error displaying BIG logo for $teamNumber: $error',

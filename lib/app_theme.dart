@@ -14,7 +14,7 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: cs.copyWith(primary: _brand, secondary: _brand),
       scaffoldBackgroundColor: const Color.fromARGB(255, 0, 0, 0),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFF151518),
         elevation: 0,
         shape: RoundedRectangleBorder(

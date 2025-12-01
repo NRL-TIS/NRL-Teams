@@ -158,8 +158,10 @@ class _ChecklistTile extends StatelessWidget {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.white,
+                  color: checked ? Colors.white.withOpacity(0.6) : Colors.white,
                   fontWeight: checked ? FontWeight.w600 : FontWeight.w500,
+                  decoration: checked ? TextDecoration.lineThrough : null,
+                  decorationThickness: 2,
                 ),
               ),
             ),

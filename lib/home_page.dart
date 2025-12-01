@@ -6,6 +6,7 @@ import 'otherpages.dart';
 import 'Matchschedule.dart';
 import 'livetracker_page.dart';
 import 'League_leaderboard.dart';
+import 'Autonomous_leaderboard.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const double kDesktopCardHeight = 172;
@@ -138,7 +139,7 @@ class _HomePageState extends State<HomePage> {
         sectionChild = const MatchSchedulePage();
         break;
       case NrlSection.liveTracker:
-        sectionTitle = 'Live Tracker';
+        sectionTitle = 'Checklist';
         sectionChild = const LiveTrackerPage();
         break;
       case NrlSection.leagueLeaderboard:
@@ -147,8 +148,7 @@ class _HomePageState extends State<HomePage> {
         break;
       case NrlSection.autonomousLeaderboard:
         sectionTitle = 'Autonomous Leaderboard';
-        sectionChild = const LeagueLeaderboardPage();
-
+        sectionChild = const AutonomousLeaderboardPage();
         break;
       case NrlSection.home:
         sectionTitle = '';
@@ -308,8 +308,8 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: _QuickCard(
-                      icon: Icons.insights_outlined,
-                      label: 'Live Tracker',
+                      icon: Icons.checklist,
+                      label: 'Checklist',
                       onTap:
                           () => setState(
                             () => _currentSection = NrlSection.liveTracker,
@@ -377,8 +377,8 @@ class _HomePageState extends State<HomePage> {
                         ),
                   ),
                   _QuickCard(
-                    icon: Icons.insights_outlined,
-                    label: 'Live Tracker',
+                    icon: Icons.checklist,
+                    label: 'Checklist',
                     onTap:
                         () => setState(
                           () => _currentSection = NrlSection.liveTracker,
@@ -471,7 +471,11 @@ class _SearchBarState extends State<_SearchBar> {
     super.dispose();
   }
 
+
   void _onTextChanged() {
+    // Ignore changes if the field is not focused
+    if (!_focusNode.hasFocus) return;
+
     final next = _controller.text.trim();
     if (next == _searchTerm) return;
 
@@ -524,15 +528,26 @@ class _SearchBarState extends State<_SearchBar> {
   }
 
   void _openTeam(String teamNumber) {
+    // Prevent listener from firing search when we set the text
+    _focusNode.unfocus();
+
+    // Optionally show the selected team in the box when you come back
     _controller.text = teamNumber;
-    _searchTerm = teamNumber;
+
+    // Clear state + overlay
+    setState(() {
+      _searchTerm = '';
+      _suggestions = [];
+    });
     _removeOverlay();
 
+    // Now navigate
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder:
-            (_) =>
-                TeamDetailPage(teamNumber: teamNumber, teamDocId: teamNumber),
+        builder: (_) => TeamDetailPage(
+          teamNumber: teamNumber,
+          teamDocId: teamNumber,
+        ),
       ),
     );
   }
@@ -618,7 +633,10 @@ class _SearchBarState extends State<_SearchBar> {
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(fontWeight: FontWeight.w600),
                               ),
-                              onTap: () => _openTeam(teamNumber),
+                              onTap: () {
+                                // Simply call _openTeam - it handles everything
+                                _openTeam(teamNumber);
+                              },
                             );
                           },
                         )

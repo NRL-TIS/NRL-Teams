@@ -1013,18 +1013,18 @@ class _WinnerFromMatches extends StatelessWidget {
         return Wrap(
           spacing: 8,
           children:
-              winnerTeams
-                  .map(
-                    (t) => _TeamChip(
-                      teamNumber: t,
-                      background:
-                          redWins
-                              ? const Color(0xFFE53935)
-                              : const Color(0xFF1E88E5),
-                      onTap: () => _openTeamPage(context, t),
-                    ),
-                  )
-                  .toList(),
+                  winnerTeams
+                      .map(
+                        (t) => _TeamChip(
+                          teamNumber: t,
+                          background:
+                              redWins
+                                  ? const Color(0xFFE53935)
+                                  : const Color(0xFF1E88E5),
+                          onTap: () => _openTeamPage(context, t),
+                        ),
+                      )
+                      .toList(),
         );
       },
     );
