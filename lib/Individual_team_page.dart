@@ -3,6 +3,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'individual_match.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+
 // import 'Matchschedule.dart';
 
 class _TeamMatchesCard extends StatelessWidget {
@@ -83,6 +86,16 @@ class _TeamChip extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _readOptionalString(Map<String, dynamic> data, String key) {
+  final value = data[key];
+  if (value == null) return null;
+
+  final s = value.toString().trim();
+  if (s.isEmpty) return null;
+
+  return s;
 }
 
 class TeamDetailPage extends StatelessWidget {
@@ -167,6 +180,11 @@ class TeamDetailPage extends StatelessWidget {
           final int yellowCardCount =
               (data['yellowCards'] as num?)?.toInt() ?? 0;
 
+          final String? robotName = _readOptionalString(data, 'robotName');
+          final String? schoolName = _readOptionalString(data, 'schoolName');
+          final String? teamTagline = _readOptionalString(data, 'teamTagline');
+          final String? instaLink = _readOptionalString(data, 'instaLink');
+
           return LayoutBuilder(
             builder: (context, constraints) {
               final isWide = constraints.maxWidth >= 1000;
@@ -190,6 +208,10 @@ class TeamDetailPage extends StatelessWidget {
                           details: details,
                           redCardCount: redCardCount,
                           yellowCardCount: yellowCardCount,
+                          robotName: robotName,
+                          schoolName: schoolName,
+                          teamTagline: teamTagline,
+                          instaLink: instaLink,
                         ),
                       ),
                       const SizedBox(width: 24),
@@ -257,6 +279,10 @@ class TeamDetailPage extends StatelessWidget {
                         details: details,
                         redCardCount: redCardCount,
                         yellowCardCount: yellowCardCount,
+                        robotName: robotName,
+                        schoolName: schoolName,
+                        teamTagline: teamTagline,
+                        instaLink: instaLink,
                       ),
 
                       const SizedBox(height: 16),
@@ -315,6 +341,12 @@ class _TeamInfoCard extends StatelessWidget {
   final int redCardCount;
   final int yellowCardCount;
 
+  // NEW FIELDS
+  final String? robotName;
+  final String? schoolName;
+  final String? teamTagline;
+  final String? instaLink;
+
   const _TeamInfoCard({
     required this.teamName,
     required this.teamNumber,
@@ -323,7 +355,160 @@ class _TeamInfoCard extends StatelessWidget {
     required this.details,
     required this.redCardCount,
     required this.yellowCardCount,
+    this.robotName,
+    this.schoolName,
+    this.teamTagline,
+    this.instaLink,
   });
+  String _extractInstagramUsername(String rawLink) {
+    String link = rawLink.trim();
+
+    // If it's just a handle
+    if (!link.startsWith('http')) {
+      if (link.startsWith('@')) {
+        link = link.substring(1);
+      }
+      return link;
+    }
+
+    // If it's a full URL
+    try {
+      final uri = Uri.parse(link);
+      final seg = uri.pathSegments.firstWhere(
+        (s) => s.isNotEmpty,
+        orElse: () => '',
+      );
+      return seg;
+    } catch (_) {
+      link = link.replaceAll('https://', '').replaceAll('http://', '');
+      final idx = link.indexOf('instagram.com/');
+      if (idx != -1) {
+        final after = link.substring(idx + 'instagram.com/'.length);
+        final parts = after.split('/');
+        return parts.firstWhere((s) => s.isNotEmpty, orElse: () => '');
+      }
+      return link;
+    }
+  }
+
+  Widget _buildDetailRow(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    bool italicValue = false,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.03),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: cs.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontStyle:
+                          italicValue ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstagramRow(BuildContext context, String rawLink) {
+    final cs = Theme.of(context).colorScheme;
+
+    final username = _extractInstagramUsername(rawLink);
+    if (username.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final Uri uri;
+    if (rawLink.startsWith('http')) {
+      uri = Uri.parse(rawLink);
+    } else {
+      uri = Uri.parse('https://instagram.com/$username');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () async {
+          try {
+            if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+              debugPrint('Could not launch $uri');
+            }
+          } catch (e) {
+            debugPrint('Error launching $uri: $e');
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.045),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.alternate_email, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Instagram',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@$username',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: cs.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.open_in_new, size: 16, color: cs.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // ─────────────── HELPER: LOAD TEAM LOGO FROM FIREBASE STORAGE ───────────────
   static Future<String?> _loadTeamLogo(String rawTeamNumber) async {
@@ -447,7 +632,9 @@ class _TeamInfoCard extends StatelessWidget {
                           child: const Center(
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white38),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white38,
+                              ),
                             ),
                           ),
                         );
@@ -598,7 +785,7 @@ class _TeamInfoCard extends StatelessWidget {
           Divider(color: Colors.white.withOpacity(0.12), height: 1),
           const SizedBox(height: 16),
 
-          // ───────────────────── TEAM DETAILS ─────────────────────
+          // ──
           Text(
             'Team Details',
             style: Theme.of(
@@ -606,100 +793,156 @@ class _TeamInfoCard extends StatelessWidget {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
-          Text(
-            details.isNotEmpty
-                ? details
-                : 'No additional details have been added for this team yet.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+
+          Builder(
+            builder: (context) {
+              final rn = robotName;
+              final sn = schoolName;
+              final tag = teamTagline;
+              final ig = instaLink;
+
+              // If all four are null/empty, hide whole block
+              final hasAnyDetail = [
+                rn,
+                sn,
+                tag,
+                ig,
+              ].any((v) => v != null && v.isNotEmpty);
+
+              if (!hasAnyDetail) {
+                return const SizedBox.shrink();
+              }
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (rn != null && rn.isNotEmpty)
+                      _buildDetailRow(
+                        context,
+                        icon: Icons.smart_toy_outlined,
+                        label: 'Robot Name',
+                        value: rn,
+                      ),
+                    if (sn != null && sn.isNotEmpty)
+                      _buildDetailRow(
+                        context,
+                        icon: Icons.school_outlined,
+                        label: 'School / Institute',
+                        value: sn,
+                      ),
+                    if (tag != null && tag.isNotEmpty)
+                      _buildDetailRow(
+                        context,
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Team Tagline',
+                        value: tag,
+                        italicValue: true,
+                      ),
+                    if (ig != null && ig.isNotEmpty)
+                      _buildInstagramRow(context, ig),
+                  ],
+                ),
+              );
+            },
           ),
 
           const SizedBox(height: 24),
 
+          const SizedBox(height: 8),
+
           // ───────────────────── BIG TEAM LOGO (CONSISTENT SIZE) ─────────────────────
-          Center(
-            child: FutureBuilder<String?>(
-              future: _TeamInfoCard._loadTeamLogo(teamNumber),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Container(
-                    width: 220,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.12)),
-                    ),
-                    child: const Center(
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
+          // Center(
+          //   child: FutureBuilder<String?>(
+          //     future: _TeamInfoCard._loadTeamLogo(teamNumber),
+          //     builder: (context, snapshot) {
+          //       if (snapshot.connectionState == ConnectionState.waiting) {
+          //         return Container(
+          //           width: 220,
+          //           height: 220,
+          //           decoration: BoxDecoration(
+          //             color: Colors.white10,
+          //             borderRadius: BorderRadius.circular(24),
+          //             border: Border.all(color: Colors.white.withOpacity(0.12)),
+          //           ),
+          //           child: const Center(
+          //             child: CircularProgressIndicator(strokeWidth: 2),
+          //           ),
+          //         );
+          //       }
 
-                if (snapshot.hasError ||
-                    snapshot.data == null ||
-                    snapshot.data!.isEmpty) {
-                  // Fallback if logo missing or error
-                  return Container(
-                    width: 220,
-                    height: 220,
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.12)),
-                    ),
-                    child: const Icon(
-                      Icons.groups,
-                      size: 72,
-                      color: Colors.white54,
-                    ),
-                  );
-                }
+          //       if (snapshot.hasError ||
+          //           snapshot.data == null ||
+          //           snapshot.data!.isEmpty) {
+          //         // Fallback if logo missing or error
+          //         return Container(
+          //           width: 220,
+          //           height: 220,
+          //           decoration: BoxDecoration(
+          //             color: Colors.white10,
+          //             borderRadius: BorderRadius.circular(24),
+          //             border: Border.all(color: Colors.white.withOpacity(0.12)),
+          //           ),
+          //           child: const Icon(
+          //             Icons.groups,
+          //             size: 72,
+          //             color: Colors.white54,
+          //           ),
+          //         );
+          //       }
 
-                final url = snapshot.data!;
-                debugPrint('🌐 Loading BIG logo image for $teamNumber: $url');
+          //       final url = snapshot.data!;
+          //       debugPrint('🌐 Loading BIG logo image for $teamNumber: $url');
 
-                return Container(
-                  width: 220,
-                  height: 220,
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white.withOpacity(0.12)),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Image.network(
-                      url,
-                      fit: BoxFit.contain, // 👈 keeps full logo, consistent box
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white38),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint(
-                          '🚫 Error displaying BIG logo for $teamNumber: $error',
-                        );
-                        return const Center(
-                          child: Icon(
-                            Icons.groups,
-                            size: 72,
-                            color: Colors.white54,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          //       return Container(
+          //         width: 220,
+          //         height: 220,
+          //         decoration: BoxDecoration(
+          //           color: Colors.white10,
+          //           borderRadius: BorderRadius.circular(24),
+          //           border: Border.all(color: Colors.white.withOpacity(0.12)),
+          //         ),
+          //         child: ClipRRect(
+          //           borderRadius: BorderRadius.circular(24),
+          //           child: Image.network(
+          //             url,
+          //             fit: BoxFit.contain, // 👈 keeps full logo, consistent box
+          //             loadingBuilder: (context, child, loadingProgress) {
+          //               if (loadingProgress == null) return child;
+          //               return const Center(
+          //                 child: CircularProgressIndicator(
+          //                   strokeWidth: 2,
+          //                   valueColor: AlwaysStoppedAnimation<Color>(
+          //                     Colors.white38,
+          //                   ),
+          //                 ),
+          //               );
+          //             },
+          //             errorBuilder: (context, error, stackTrace) {
+          //               debugPrint(
+          //                 '🚫 Error displaying BIG logo for $teamNumber: $error',
+          //               );
+          //               return const Center(
+          //                 child: Icon(
+          //                   Icons.groups,
+          //                   size: 72,
+          //                   color: Colors.white54,
+          //                 ),
+          //               );
+          //             },
+          //           ),
+          //         ),
+          //       );
+          //     },
+          //   ),
+          // ),
         ],
       ),
     );
