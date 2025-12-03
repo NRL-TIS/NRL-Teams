@@ -39,7 +39,7 @@ class _TeamMatchesCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Use the IndividualMatchSchedule widget with the new logic
+          
           IndividualMatchSchedule(teamNumber: teamNumber),
         ],
       ),
@@ -216,7 +216,7 @@ class TeamDetailPage extends StatelessWidget {
                           teamTagline: teamTagline,
                           instaLink: instaLink,
                           groupPhotoStorageUrl:
-                              groupPhotoStorageUrl, // 👈 ADD THIS
+                              groupPhotoStorageUrl, 
                         ),
                       ),
                       const SizedBox(width: 24),
@@ -289,7 +289,8 @@ class TeamDetailPage extends StatelessWidget {
                         teamTagline: teamTagline,
                         instaLink: instaLink,
                         groupPhotoStorageUrl:
-                            groupPhotoStorageUrl, // 👈 ADD THIS
+                            groupPhotoStorageUrl,
+
                       ),
 
                       const SizedBox(height: 16),
@@ -348,7 +349,7 @@ class _TeamInfoCard extends StatelessWidget {
   final int redCardCount;
   final int yellowCardCount;
 
-  // NEW FIELDS
+  
   final String? robotName;
   final String? schoolName;
   final String? teamTagline;
@@ -372,7 +373,7 @@ class _TeamInfoCard extends StatelessWidget {
   String _extractInstagramUsername(String rawLink) {
     String link = rawLink.trim();
 
-    // If it's just a handle
+    
     if (!link.startsWith('http')) {
       if (link.startsWith('@')) {
         link = link.substring(1);
@@ -380,7 +381,7 @@ class _TeamInfoCard extends StatelessWidget {
       return link;
     }
 
-    // If it's a full URL
+    
     try {
       final uri = Uri.parse(link);
       final seg = uri.pathSegments.firstWhere(
@@ -519,7 +520,7 @@ class _TeamInfoCard extends StatelessWidget {
     );
   }
 
-  // ─────────────── HELPER: LOAD TEAM LOGO FROM FIREBASE STORAGE ───────────────
+  
   static Future<String?> _loadTeamLogo(String rawTeamNumber) async {
     final teamNumber = rawTeamNumber.trim();
 
@@ -561,11 +562,11 @@ class _TeamInfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ───────────────────── TOP ROW: SMALL LOGO + NAME + CARDS ─────────────────────
+       
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // SMALL TEAM LOGO (kept same as before)
+            
               FutureBuilder<String?>(
                 future: _TeamInfoCard._loadTeamLogo(teamNumber),
                 builder: (context, snapshot) {
@@ -673,7 +674,7 @@ class _TeamInfoCard extends StatelessWidget {
 
               const SizedBox(width: 16),
 
-              // NAME + CARDS
+    
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -692,7 +693,7 @@ class _TeamInfoCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
 
-                    // Red cards
+         
                     if (redCardCount > 0)
                       Row(
                         children: List.generate(
@@ -712,7 +713,7 @@ class _TeamInfoCard extends StatelessWidget {
                     if (redCardCount > 0 && yellowCardCount > 0)
                       const SizedBox(width: 4),
 
-                    // Yellow cards
+                    
                     if (yellowCardCount > 0)
                       Row(
                         children: List.generate(
@@ -743,7 +744,7 @@ class _TeamInfoCard extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // ───────────────────── TEAM TYPE + LOCATION ROW ─────────────────────
+         
           Row(
             children: [
               Expanded(
@@ -794,7 +795,7 @@ class _TeamInfoCard extends StatelessWidget {
           Divider(color: Colors.white.withOpacity(0.12), height: 1),
           const SizedBox(height: 16),
 
-          // ──
+         
           Text(
             'Team Details',
             style: Theme.of(
@@ -810,7 +811,7 @@ class _TeamInfoCard extends StatelessWidget {
               final tag = teamTagline;
               final ig = instaLink;
 
-              // If all four are null/empty, hide whole block
+         
               final hasAnyDetail = [
                 rn,
                 sn,
@@ -967,7 +968,7 @@ class _TeamInfoCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                   child: Image.network(
                     groupPhotoStorageUrl!,
-                    fit: BoxFit.cover, // or BoxFit.contain if you prefer
+                    fit: BoxFit.cover, 
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
                       return const Center(
