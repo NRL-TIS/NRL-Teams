@@ -55,7 +55,10 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0.5,
               shadowColor: Colors.white.withOpacity(0.06),
-              toolbarHeight: isMobile ? 72 : 88,
+
+              // 🔼 Increased so the bigger image has room
+              toolbarHeight: isMobile ? 120 : 140,
+
               centerTitle: false,
               titleSpacing: isMobile ? 8 : 12,
               leadingWidth: isMobile ? 56 : 80,
@@ -103,6 +106,23 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
               ),
+
+              // 👉 Right-side big logo (2.5x from before)
+              actions: [
+                Padding(
+                  padding: EdgeInsets.only(right: isMobile ? 8 : 16),
+                  child: SizedBox(
+                    // old: 40 x 80 (mobile), 50 x 110 (desktop)
+                    // now: 2.5x → 100 x 200, 125 x 275
+                    height: isMobile ? 50 : 100,
+                    width: isMobile ? 175 : 250,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: Image.asset('assets/boc.png'),
+                    ),
+                  ),
+                ),
+              ],
 
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(0.5),
