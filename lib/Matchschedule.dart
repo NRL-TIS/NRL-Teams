@@ -67,11 +67,11 @@ String _buildMatchesDocPrefix(String division, String phase) {
 
   switch (phase) {
     case 'final':
-      return '${cap}_final_Match_';
+      return '${cap}_Final_Match_';
     case 'semifinal':
-      return '${cap}_semifinal_Match_';
+      return '${cap}_Semifinal_Match_';
     case 'quarterfinal':
-      return '${cap}_quarterfinals_Match_';
+      return '${cap}_Quaterfinals_Match_';
     case 'qualification':
     default:
       return '${cap}_Qualification_Match_';
@@ -773,13 +773,25 @@ class _TeamChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 700;
 
+    // 1.25x scale for mobile
+    const double mobileScale = 1.5;
+
+    // base mobile values (your old ones)
+    const double baseMobileH = 4;
+    const double baseMobileV = 4;
+    const double baseMobileFont = 9;
+
+    final double horizontalPadding = isMobile ? baseMobileH * mobileScale : 10;
+    final double verticalPadding = isMobile ? baseMobileV * mobileScale : 6;
+    final double fontSize = isMobile ? baseMobileFont * mobileScale : 13;
+
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 4 : 10,
-          vertical: isMobile ? 4 : 6,
+          horizontal: horizontalPadding,
+          vertical: verticalPadding,
         ),
         decoration: BoxDecoration(
           color: background,
@@ -790,7 +802,7 @@ class _TeamChip extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: isMobile ? 9 : 13,
+            fontSize: fontSize,
           ),
         ),
       ),
@@ -836,8 +848,12 @@ class _ScoreCell extends StatelessWidget {
         // override if Matches doc is available
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-          redScore = (data['red_final_score'] as num?)?.toInt() ?? redScore;
-          blueScore = (data['blue_final_score'] as num?)?.toInt() ?? blueScore;
+          redScore =
+              (data['red_final_score_with_penalties'] as num?)?.toInt() ??
+              redScore;
+          blueScore =
+              (data['blue_final_score_with_penalties'] as num?)?.toInt() ??
+              blueScore;
         }
 
         final bool redWins = redScore > blueScore;
@@ -873,17 +889,24 @@ class _StatusChip extends StatelessWidget {
     Color bg;
     switch (status.toLowerCase()) {
       case 'completed':
-        bg = const Color(0xFF333333);
+        // Green for completed
+        bg = const Color(0xFF2E7D32); // or 0xFF00C853 for brighter
         break;
+
       case 'running':
+        // Keep amber for in-progress
         bg = const Color(0xFFFFB300);
         break;
+
       case 'tie':
+        // Your existing purple
         bg = const Color(0xFF6A1B9A);
         break;
+
       case 'scheduled':
       default:
-        bg = const Color(0xFF424242);
+        // Muted blue-grey for scheduled
+        bg = const Color(0xFF546E7A);
         break;
     }
 
@@ -936,16 +959,27 @@ class _StatusFromMatches extends StatelessWidget {
 
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
 
-        final redScore = (data['red_final_score'] as num?)?.toInt() ?? 0;
-        final blueScore = (data['blue_final_score'] as num?)?.toInt() ?? 0;
+        final bool finalized = (data['finalized'] as bool?) ?? false;
+
+        final int redScore =
+            (data['red_final_score_with_penalties'] as num?)?.toInt() ?? 0;
+        final int blueScore =
+            (data['blue_final_score_with_penalties'] as num?)?.toInt() ?? 0;
 
         String status;
-        if (redScore == 0 && blueScore == 0) {
-          status = 'Scheduled';
-        } else if (redScore == blueScore) {
-          status = 'Tie';
+
+        if (!finalized) {
+          if (redScore == 0 && blueScore == 0) {
+            status = 'Scheduled';
+          } else {
+            status = 'Running';
+          }
         } else {
-          status = 'Completed';
+          if (redScore == blueScore) {
+            status = 'Completed';
+          } else {
+            status = 'Completed';
+          }
         }
 
         return _StatusChip(status: status);
@@ -989,15 +1023,17 @@ class _WinnerFromMatches extends StatelessWidget {
               .doc(docId)
               .snapshots(),
       builder: (context, snapshot) {
-        // start with schedule scores
         int redScore = initialRedScore;
         int blueScore = initialBlueScore;
 
-        // override if Matches doc has data
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-          redScore = (data['red_final_score'] as num?)?.toInt() ?? redScore;
-          blueScore = (data['blue_final_score'] as num?)?.toInt() ?? blueScore;
+          redScore =
+              (data['red_final_score_with_penalties'] as num?)?.toInt() ??
+              redScore;
+          blueScore =
+              (data['blue_final_score_with_penalties'] as num?)?.toInt() ??
+              blueScore;
         }
 
         final bool redWins = redScore > blueScore;
@@ -1013,18 +1049,18 @@ class _WinnerFromMatches extends StatelessWidget {
         return Wrap(
           spacing: 8,
           children:
-                  winnerTeams
-                      .map(
-                        (t) => _TeamChip(
-                          teamNumber: t,
-                          background:
-                              redWins
-                                  ? const Color(0xFFE53935)
-                                  : const Color(0xFF1E88E5),
-                          onTap: () => _openTeamPage(context, t),
-                        ),
-                      )
-                      .toList(),
+              winnerTeams
+                  .map(
+                    (t) => _TeamChip(
+                      teamNumber: t,
+                      background:
+                          redWins
+                              ? const Color(0xFFE53935)
+                              : const Color(0xFF1E88E5),
+                      onTap: () => _openTeamPage(context, t),
+                    ),
+                  )
+                  .toList(),
         );
       },
     );
