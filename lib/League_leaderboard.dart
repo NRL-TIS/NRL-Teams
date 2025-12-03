@@ -25,7 +25,253 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
     final headingStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: Colors.white.withOpacity(0.9),
       fontWeight: FontWeight.w600,
+      fontSize: isMobile ? 10 : 12, // smaller on mobile
     );
+
+    // Table (header + data)
+    Widget tableContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Rank',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Text(
+                  'Team',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Ranking Points\n(RP) (Avg)',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Match Score\n(Avg)',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Charge Station\n(Avg)',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Golden Charge\n(Avg)',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Charge Points\n(Avg)',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Center(
+                child: Text(
+                  'Record\n(W-L-T)',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Text(
+                  'Played',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Text(
+                  'Points',
+                  style: headingStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // DATA
+        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('Rankings')
+                  .doc(_selectedDivision)
+                  .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: Center(
+                  child: Text(
+                    'Error loading rankings',
+                    style: TextStyle(color: Colors.red.shade300),
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final doc = snapshot.data;
+            if (doc == null || doc.data() == null) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(
+                  child: Text(
+                    'No rankings added yet',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              );
+            }
+
+            final data = doc.data()!;
+            final List<_LeaderboardEntry> rows = [];
+
+            data.forEach((teamKey, value) {
+              if (value is Map<String, dynamic>) {
+                final currentRank =
+                    (value['currentRank'] as num?)?.toInt() ?? 9999;
+                final previousRank =
+                    (value['previousRank'] as num?)?.toInt() ?? currentRank;
+
+                final rankingScoreAvg =
+                    (value['rankingScoreAvg'] as num?)?.toDouble() ?? 0.0;
+                final matchScoreAvg =
+                    (value['matchScoreAvg'] as num?)?.toDouble() ?? 0.0;
+                final chargeStationAvg =
+                    (value['chargeStationAvg'] as num?)?.toDouble() ?? 0.0;
+                final goldenChargeAvg =
+                    (value['goldenChargeAvg'] as num?)?.toDouble() ?? 0.0;
+                final chargePointsAvg =
+                    (value['chargePointsAvg'] as num?)?.toDouble() ?? 0.0;
+
+                final wins = (value['wins'] as num?)?.toInt() ?? 0;
+                // support both "losses" and (typo) "lossses"
+                final losses =
+                    ((value['losses'] ?? value['lossses']) as num?)?.toInt() ??
+                    0;
+                final ties = (value['tie'] as num?)?.toInt() ?? 0;
+
+                final played = (value['played'] as num?)?.toInt() ?? 0;
+                final points = (value['points'] as num?)?.toInt() ?? 0;
+
+                final teamNumber = teamKey.toString();
+
+                rows.add(
+                  _LeaderboardEntry(
+                    currentRank: currentRank,
+                    previousRank: previousRank,
+                    teamNumber: teamNumber,
+                    rankingScoreAvg: rankingScoreAvg,
+                    matchScoreAvg: matchScoreAvg,
+                    chargeStationAvg: chargeStationAvg,
+                    goldenChargeAvg: goldenChargeAvg,
+                    chargePointsAvg: chargePointsAvg,
+                    wins: wins,
+                    losses: losses,
+                    ties: ties,
+                    played: played,
+                    points: points,
+                  ),
+                );
+              }
+            });
+
+            // Sort by currentRank
+            rows.sort((a, b) => a.currentRank.compareTo(b.currentRank));
+
+            if (rows.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(
+                  child: Text(
+                    'No rankings added yet',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                const SizedBox(height: 4),
+                for (int i = 0; i < rows.length; i++) ...[
+                  _LeaderboardRow(index: i, entry: rows[i], isMobile: isMobile),
+                  const SizedBox(height: 1),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+
+    // Wrap entire table in horizontal scroll for mobile to avoid overflow
+    final tableWrapper =
+        isMobile
+            ? SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: 1000, // enough width for all columns on mobile
+                child: tableContent,
+              ),
+            )
+            : tableContent;
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 4 : 8, vertical: 8),
@@ -38,7 +284,6 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
             style: titleStyle,
           ),
           const SizedBox(height: 16),
-
           _DivisionToggle(
             selected: _selectedDivision,
             onChanged: (value) {
@@ -46,119 +291,7 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
             },
           ),
           const SizedBox(height: 26),
-
-          Row(
-            children: [
-              Expanded(flex: 2, child: Text('Ranking', style: headingStyle)),
-              Expanded(
-                flex: 2,
-                child: Text('Team Number', style: headingStyle),
-              ),
-              Expanded(flex: 5, child: Text('Team Name', style: headingStyle)),
-              Expanded(
-                flex: 2,
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Text('Ranking Points', style: headingStyle),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('Rankings')
-                    .doc(_selectedDivision)
-                    .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Center(
-                    child: Text(
-                      'Error loading rankings',
-                      style: TextStyle(color: Colors.red.shade300),
-                    ),
-                  ),
-                );
-              }
-
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.only(top: 24),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              final doc = snapshot.data;
-              if (doc == null || doc.data() == null) {
-                return const Padding(
-                  padding: EdgeInsets.only(top: 24),
-                  child: Center(
-                    child: Text(
-                      'No rankings added yet',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                );
-              }
-
-              final data = doc.data()!;
-
-              final List<_LeaderboardEntry> rows = [];
-
-              data.forEach((teamKey, value) {
-                if (value is Map<String, dynamic>) {
-                  final previousRank =
-                      (value['previousRank'] as num?)?.toInt() ?? 9999;
-                  final points = (value['points'] as num?)?.toInt() ?? 0;
-                  final teamNumber = teamKey.toString();
-
-                  rows.add(
-                    _LeaderboardEntry(
-                      rank: previousRank,
-                      teamNumber: teamNumber,
-                      teamName: 'Team $teamNumber',
-                      points: points,
-                    ),
-                  );
-                }
-              });
-
-              rows.sort((a, b) => a.rank.compareTo(b.rank));
-
-              if (rows.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.only(top: 24),
-                  child: Center(
-                    child: Text(
-                      'No rankings added yet',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                );
-              }
-
-              return Column(
-                children: [
-                  const SizedBox(height: 4),
-                  for (int i = 0; i < rows.length; i++) ...[
-                    _LeaderboardRow(
-                      index: i,
-                      rank: rows[i].rank,
-                      teamNumber: rows[i].teamNumber,
-                      teamName: rows[i].teamName,
-                      points: rows[i].points,
-                      isMobile: isMobile,
-                    ),
-                    const SizedBox(height: 1),
-                  ],
-                ],
-              );
-            },
-          ),
+          tableWrapper,
         ],
       ),
     );
@@ -166,15 +299,35 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
 }
 
 class _LeaderboardEntry {
-  final int rank;
+  final int currentRank;
+  final int previousRank;
   final String teamNumber;
-  final String teamName;
+
+  final double rankingScoreAvg;
+  final double matchScoreAvg;
+  final double chargeStationAvg;
+  final double goldenChargeAvg;
+  final double chargePointsAvg;
+
+  final int wins;
+  final int losses;
+  final int ties;
+  final int played;
   final int points;
 
   _LeaderboardEntry({
-    required this.rank,
+    required this.currentRank,
+    required this.previousRank,
     required this.teamNumber,
-    required this.teamName,
+    required this.rankingScoreAvg,
+    required this.matchScoreAvg,
+    required this.chargeStationAvg,
+    required this.goldenChargeAvg,
+    required this.chargePointsAvg,
+    required this.wins,
+    required this.losses,
+    required this.ties,
+    required this.played,
     required this.points,
   });
 }
@@ -268,18 +421,12 @@ class _DivisionChip extends StatelessWidget {
 
 class _LeaderboardRow extends StatefulWidget {
   final int index;
-  final int rank;
-  final String teamNumber;
-  final String teamName;
-  final int points;
+  final _LeaderboardEntry entry;
   final bool isMobile;
 
   const _LeaderboardRow({
     required this.index,
-    required this.rank,
-    required this.teamNumber,
-    required this.teamName,
-    required this.points,
+    required this.entry,
     required this.isMobile,
   });
 
@@ -334,6 +481,26 @@ class _LeaderboardRowState extends State<_LeaderboardRow> {
       fontWeight: FontWeight.w700,
     );
 
+    // Arrow logic
+    final delta =
+        widget.entry.previousRank - widget.entry.currentRank; // +ve = went up
+    IconData arrowIcon;
+    Color arrowColor;
+
+    if (delta > 0) {
+      arrowIcon = Icons.arrow_upward;
+      arrowColor = Colors.greenAccent;
+    } else if (delta < 0) {
+      arrowIcon = Icons.arrow_downward;
+      arrowColor = Colors.redAccent;
+    } else {
+      arrowIcon = Icons.remove;
+      arrowColor = Colors.grey;
+    }
+
+    final recordText =
+        '${widget.entry.wins}-${widget.entry.losses}-${widget.entry.ties}';
+
     Widget content = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOut,
@@ -377,24 +544,124 @@ class _LeaderboardRowState extends State<_LeaderboardRow> {
       ),
       child: Row(
         children: [
+          // Rank + arrow
           Expanded(
-            flex: 2,
-            child: Text('#${widget.rank}', style: rankTextStyle),
-          ),
-          Expanded(flex: 2, child: Text(widget.teamNumber, style: bodyStyle)),
-          Expanded(
-            flex: 5,
-            child: Text(
-              widget.teamName,
-              style: bodyStyle?.copyWith(fontWeight: FontWeight.w600),
-              overflow: TextOverflow.ellipsis,
+            flex: 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('#${widget.entry.currentRank}', style: rankTextStyle),
+                const SizedBox(width: 4),
+                Icon(arrowIcon, size: 16, color: arrowColor),
+              ],
             ),
           ),
+
+          // Team number
           Expanded(
             flex: 2,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(widget.points.toString(), style: pointsStyle),
+            child: Center(
+              child: Text(
+                widget.entry.teamNumber,
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // RankingScoreAvg
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Text(
+                widget.entry.rankingScoreAvg.toStringAsFixed(2),
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // MatchScoreAvg
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Text(
+                widget.entry.matchScoreAvg.toStringAsFixed(2),
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // ChargeStationAvg
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Text(
+                widget.entry.chargeStationAvg.toStringAsFixed(2),
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // GoldenChargeAvg
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Text(
+                widget.entry.goldenChargeAvg.toStringAsFixed(2),
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // ChargePointsAvg
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Text(
+                widget.entry.chargePointsAvg.toStringAsFixed(2),
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // Record W-L-T
+          Expanded(
+            flex: 3,
+            child: Center(
+              child: Text(
+                recordText,
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // Played
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                widget.entry.played.toString(),
+                style: bodyStyle,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+
+          // Points
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                widget.entry.points.toString(),
+                style: pointsStyle,
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ],
