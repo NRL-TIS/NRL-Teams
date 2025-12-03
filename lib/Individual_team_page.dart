@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'individual_match.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-
 // import 'Matchschedule.dart';
 
 class _TeamMatchesCard extends StatelessWidget {
@@ -184,6 +183,10 @@ class TeamDetailPage extends StatelessWidget {
           final String? schoolName = _readOptionalString(data, 'schoolName');
           final String? teamTagline = _readOptionalString(data, 'teamTagline');
           final String? instaLink = _readOptionalString(data, 'instaLink');
+          final String? groupPhotoStorageUrl = _readOptionalString(
+            data,
+            'groupPhotoStorageUrl',
+          );
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -212,6 +215,8 @@ class TeamDetailPage extends StatelessWidget {
                           schoolName: schoolName,
                           teamTagline: teamTagline,
                           instaLink: instaLink,
+                          groupPhotoStorageUrl:
+                              groupPhotoStorageUrl, // 👈 ADD THIS
                         ),
                       ),
                       const SizedBox(width: 24),
@@ -283,6 +288,8 @@ class TeamDetailPage extends StatelessWidget {
                         schoolName: schoolName,
                         teamTagline: teamTagline,
                         instaLink: instaLink,
+                        groupPhotoStorageUrl:
+                            groupPhotoStorageUrl, // 👈 ADD THIS
                       ),
 
                       const SizedBox(height: 16),
@@ -346,6 +353,7 @@ class _TeamInfoCard extends StatelessWidget {
   final String? schoolName;
   final String? teamTagline;
   final String? instaLink;
+  final String? groupPhotoStorageUrl;
 
   const _TeamInfoCard({
     required this.teamName,
@@ -359,6 +367,7 @@ class _TeamInfoCard extends StatelessWidget {
     this.schoolName,
     this.teamTagline,
     this.instaLink,
+    this.groupPhotoStorageUrl,
   });
   String _extractInstagramUsername(String rawLink) {
     String link = rawLink.trim();
@@ -943,6 +952,49 @@ class _TeamInfoCard extends StatelessWidget {
           //     },
           //   ),
           // ),
+          // ───────────────────── GROUP PHOTO (FROM FIRESTORE URL) ─────────────────────
+          if (groupPhotoStorageUrl != null && groupPhotoStorageUrl!.isNotEmpty)
+            Center(
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  color: Colors.white10,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.network(
+                    groupPhotoStorageUrl!,
+                    fit: BoxFit.cover, // or BoxFit.contain if you prefer
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white38,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      debugPrint(
+                        '🚫 Error displaying group photo for $teamNumber: $error',
+                      );
+                      return const Center(
+                        child: Icon(
+                          Icons.groups,
+                          size: 72,
+                          color: Colors.white54,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
