@@ -25,7 +25,7 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
     final headingStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       color: Colors.white.withOpacity(0.9),
       fontWeight: FontWeight.w600,
-      fontSize: isMobile ? 10 : 12, // smaller on mobile
+      fontSize: isMobile ? 10 : 12, 
     );
 
     // Table (header + data)
@@ -139,7 +139,7 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
 
         const SizedBox(height: 8),
 
-        // DATA
+        
         StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream:
               FirebaseFirestore.instance
@@ -201,7 +201,7 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
                     (value['chargePointsAvg'] as num?)?.toDouble() ?? 0.0;
 
                 final wins = (value['wins'] as num?)?.toInt() ?? 0;
-                // support both "losses" and (typo) "lossses"
+               
                 final losses =
                     ((value['losses'] ?? value['lossses']) as num?)?.toInt() ??
                     0;
@@ -232,7 +232,7 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
               }
             });
 
-            // Sort by currentRank
+         
             rows.sort((a, b) => a.currentRank.compareTo(b.currentRank));
 
             if (rows.isEmpty) {
@@ -261,13 +261,13 @@ class _LeagueLeaderboardPageState extends State<LeagueLeaderboardPage> {
       ],
     );
 
-    // Wrap entire table in horizontal scroll for mobile to avoid overflow
+  
     final tableWrapper =
         isMobile
             ? SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SizedBox(
-                width: 1000, // enough width for all columns on mobile
+                width: 1000,
                 child: tableContent,
               ),
             )
@@ -481,9 +481,9 @@ class _LeaderboardRowState extends State<_LeaderboardRow> {
       fontWeight: FontWeight.w700,
     );
 
-    // Arrow logic
+    
     final delta =
-        widget.entry.previousRank - widget.entry.currentRank; // +ve = went up
+        widget.entry.previousRank - widget.entry.currentRank; 
     IconData arrowIcon;
     Color arrowColor;
 
@@ -544,7 +544,7 @@ class _LeaderboardRowState extends State<_LeaderboardRow> {
       ),
       child: Row(
         children: [
-          // Rank + arrow
+          
           Expanded(
             flex: 3,
             child: Row(
@@ -557,7 +557,7 @@ class _LeaderboardRowState extends State<_LeaderboardRow> {
             ),
           ),
 
-          // Team number
+          
           Expanded(
             flex: 2,
             child: Center(
@@ -582,6 +582,10 @@ class _LeaderboardRowState extends State<_LeaderboardRow> {
           ),
 
           // MatchScoreAvg
+
+
+
+          
           Expanded(
             flex: 3,
             child: Center(
