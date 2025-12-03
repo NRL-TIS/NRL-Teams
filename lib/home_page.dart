@@ -471,9 +471,7 @@ class _SearchBarState extends State<_SearchBar> {
     super.dispose();
   }
 
-
   void _onTextChanged() {
-    // Ignore changes if the field is not focused
     if (!_focusNode.hasFocus) return;
 
     final next = _controller.text.trim();
@@ -528,26 +526,20 @@ class _SearchBarState extends State<_SearchBar> {
   }
 
   void _openTeam(String teamNumber) {
-    // Prevent listener from firing search when we set the text
     _focusNode.unfocus();
-
-    // Optionally show the selected team in the box when you come back
     _controller.text = teamNumber;
 
-    // Clear state + overlay
     setState(() {
       _searchTerm = '';
       _suggestions = [];
     });
     _removeOverlay();
 
-    // Now navigate
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => TeamDetailPage(
-          teamNumber: teamNumber,
-          teamDocId: teamNumber,
-        ),
+        builder:
+            (_) =>
+                TeamDetailPage(teamNumber: teamNumber, teamDocId: teamNumber),
       ),
     );
   }
@@ -634,7 +626,6 @@ class _SearchBarState extends State<_SearchBar> {
                                     ?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               onTap: () {
-                                // Simply call _openTeam - it handles everything
                                 _openTeam(teamNumber);
                               },
                             );
@@ -661,6 +652,9 @@ class _SearchBarState extends State<_SearchBar> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile =
+        MediaQuery.of(context).size.width < HomePage._mobileMax; // 👈 NEW
+
     return Container(
       key: _fieldKey,
       child: LayoutBuilder(
@@ -677,6 +671,12 @@ class _SearchBarState extends State<_SearchBar> {
             onSubmitted: (_) => _submit(),
           );
 
+          // 👇 On mobile: show ONLY the input (no Search button)
+          if (isMobile) {
+            return input;
+          }
+
+          // 👇 On tablet/desktop: keep existing button behaviour
           final button = SizedBox(
             height: wrap ? 40 : 44,
             child: FilledButton(
