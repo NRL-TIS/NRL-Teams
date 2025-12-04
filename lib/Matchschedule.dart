@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'Individual_team_page.dart';
 
+const double kSquadCellWidth = 220; // tweak if needed
+
 class MatchSchedulePage extends StatefulWidget {
   const MatchSchedulePage({super.key});
 
@@ -131,10 +133,11 @@ class _MatchSchedulePageState extends State<MatchSchedulePage> {
 
         Expanded(
           child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('Match Schedule')
-                .doc('current_match')
-                .snapshots(),
+            stream:
+                FirebaseFirestore.instance
+                    .collection('Match Schedule')
+                    .doc('current_match')
+                    .snapshots(),
             builder: (context, currentMatchSnap) {
               // Get current stage
               String? currentStage;
@@ -158,14 +161,15 @@ class _MatchSchedulePageState extends State<MatchSchedulePage> {
                     return Center(
                       child: Text(
                         'Error loading schedule',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.redAccent),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.redAccent,
+                        ),
                       ),
                     );
                   }
 
-                  if (!scheduleSnap.hasData || scheduleSnap.data!.docs.isEmpty) {
+                  if (!scheduleSnap.hasData ||
+                      scheduleSnap.data!.docs.isEmpty) {
                     return Center(
                       child: Text(
                         'No schedule found.',
@@ -185,7 +189,8 @@ class _MatchSchedulePageState extends State<MatchSchedulePage> {
                             .snapshots(),
                     builder: (context, matchesSnap) {
                       final matchesDocs =
-                          matchesSnap.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                          matchesSnap.data?.docs ??
+                          <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
                       return AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
@@ -398,15 +403,16 @@ class _DivisionPhasesView extends StatelessWidget {
   // Prioritizes red_final_score_with_penalties and blue_final_score_with_penalties
   Map<String, Map<String, int>> _buildScoresMap() {
     final Map<String, Map<String, int>> scoresMap = {};
-    
+
     for (final doc in matchesDocs) {
       final data = doc.data() as Map<String, dynamic>? ?? {};
-      
+
       // Use red_final_score_with_penalties and blue_final_score_with_penalties (primary)
       // Fallback to red_final_score and blue_final_score if penalties not available
       int? redScore = (data['red_final_score_with_penalties'] as num?)?.toInt();
-      int? blueScore = (data['blue_final_score_with_penalties'] as num?)?.toInt();
-      
+      int? blueScore =
+          (data['blue_final_score_with_penalties'] as num?)?.toInt();
+
       // If penalties scores don't exist, try regular scores
       if (redScore == null) {
         redScore = (data['red_final_score'] as num?)?.toInt();
@@ -414,42 +420,39 @@ class _DivisionPhasesView extends StatelessWidget {
       if (blueScore == null) {
         blueScore = (data['blue_final_score'] as num?)?.toInt();
       }
-      
+
       // Only add to map if at least one score exists
       if (redScore != null || blueScore != null) {
-        scoresMap[doc.id] = {
-          'red': redScore ?? 0,
-          'blue': blueScore ?? 0,
-        };
+        scoresMap[doc.id] = {'red': redScore ?? 0, 'blue': blueScore ?? 0};
       }
     }
-    
+
     return scoresMap;
   }
 
   // Create a map of match document IDs to their finalized status
   Map<String, bool> _buildFinalizedMap() {
     final Map<String, bool> finalizedMap = {};
-    
+
     for (final doc in matchesDocs) {
       final data = doc.data() as Map<String, dynamic>? ?? {};
       final finalized = (data['finalized'] as bool?) ?? false;
       finalizedMap[doc.id] = finalized;
     }
-    
+
     return finalizedMap;
   }
 
   // Create a map of match document IDs to their winner field
   Map<String, String?> _buildWinnerMap() {
     final Map<String, String?> winnerMap = {};
-    
+
     for (final doc in matchesDocs) {
       final data = doc.data() as Map<String, dynamic>? ?? {};
       final winner = data['winner'] as String?;
       winnerMap[doc.id] = winner; // Can be 'Red', 'Blue', or null (tie)
     }
-    
+
     return winnerMap;
   }
 
@@ -538,7 +541,7 @@ class _DivisionPhasesView extends StatelessWidget {
       }
 
       final allMatches = _extractMatchesFromScheduleDoc(scheduleDoc);
-      
+
       // Only show section if it has matches (not empty)
       if (allMatches.isEmpty) {
         return;
@@ -694,6 +697,10 @@ class _MatchScheduleTable extends StatelessWidget {
       );
     }
 
+    Widget _headerCenter(String text, TextStyle? headingStyle) {
+      return Center(child: Text(text, style: headingStyle));
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         const double minTableWidth = 900;
@@ -768,19 +775,28 @@ class _MatchScheduleTable extends StatelessWidget {
                             ),
                           ),
 
+                          // Red Squad cell
                           DataCell(
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: Wrap(
-                                spacing: 8,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children:
                                     redTeams
                                         .map(
-                                          (t) => _TeamChip(
-                                            teamNumber: t,
-                                            background: const Color(0xFFE53935),
-                                            onTap:
-                                                () => _openTeamPage(context, t),
+                                          (t) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 8.0,
+                                            ),
+                                            child: _TeamChip(
+                                              teamNumber: t,
+                                              background: const Color(
+                                                0xFFE53935,
+                                              ),
+                                              onTap:
+                                                  () =>
+                                                      _openTeamPage(context, t),
+                                            ),
                                           ),
                                         )
                                         .toList(),
@@ -788,19 +804,28 @@ class _MatchScheduleTable extends StatelessWidget {
                             ),
                           ),
 
+                          // Blue Squad cell
                           DataCell(
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: Wrap(
-                                spacing: 8,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children:
                                     blueTeams
                                         .map(
-                                          (t) => _TeamChip(
-                                            teamNumber: t,
-                                            background: const Color(0xFF1E88E5),
-                                            onTap:
-                                                () => _openTeamPage(context, t),
+                                          (t) => Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: 8.0,
+                                            ),
+                                            child: _TeamChip(
+                                              teamNumber: t,
+                                              background: const Color(
+                                                0xFF1E88E5,
+                                              ),
+                                              onTap:
+                                                  () =>
+                                                      _openTeamPage(context, t),
+                                            ),
                                           ),
                                         )
                                         .toList(),
@@ -955,12 +980,10 @@ class _ScoreCell extends StatelessWidget {
     final bool redWins = redScore > blueScore;
     final bool blueWins = blueScore > redScore;
 
-    TextStyle style(bool isWinner) =>
-        (baseStyle ?? const TextStyle()).copyWith(
-          fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
-          decoration:
-              isWinner ? TextDecoration.underline : TextDecoration.none,
-        );
+    TextStyle style(bool isWinner) => (baseStyle ?? const TextStyle()).copyWith(
+      fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+      decoration: isWinner ? TextDecoration.underline : TextDecoration.none,
+    );
 
     return Text.rich(
       TextSpan(
@@ -1047,30 +1070,36 @@ class _StatusFromMatches extends StatelessWidget {
 
   bool _isCurrentStage() {
     if (currentStage == null) return false;
-    
-    final normalizedCurrentStage = currentStage!.toLowerCase().replaceAll(' ', '_');
+
+    final normalizedCurrentStage = currentStage!.toLowerCase().replaceAll(
+      ' ',
+      '_',
+    );
     final normalizedPhase = phase.toLowerCase();
-    
+
     // Check if this phase matches current stage
     if (normalizedCurrentStage == normalizedPhase) return true;
-    
+
     // Handle qualification matches (alpha/bravo -> qualification)
-    if ((normalizedCurrentStage == 'alpha' || normalizedCurrentStage == 'bravo' || normalizedCurrentStage == 'qualification') &&
+    if ((normalizedCurrentStage == 'alpha' ||
+            normalizedCurrentStage == 'bravo' ||
+            normalizedCurrentStage == 'qualification') &&
         normalizedPhase == 'qualification') {
       return true;
     }
-    
+
     // Check if current stage contains this phase or vice versa
-    if (normalizedCurrentStage.contains(normalizedPhase) || normalizedPhase.contains(normalizedCurrentStage)) {
+    if (normalizedCurrentStage.contains(normalizedPhase) ||
+        normalizedPhase.contains(normalizedCurrentStage)) {
       return true;
     }
-    
+
     return false;
   }
 
   String? _getQueuedMatchId() {
     if (!_isCurrentStage()) return null;
-    
+
     // Find the first match that is scheduled (not running, not completed)
     // This will be the "queued" match (next to be played)
     // Sort matches by matchId to get the next one in order
@@ -1080,20 +1109,20 @@ class _StatusFromMatches extends StatelessWidget {
       final bId = int.tryParse(b['matchId'].toString()) ?? 0;
       return aId.compareTo(bId);
     });
-    
+
     for (final match in sortedMatches) {
       final matchNum = match['matchId'].toString();
       final prefix = _buildMatchesDocPrefix(division, phase);
       final docId = '$prefix$matchNum';
-      
+
       // Check if this match document exists
       final matchDocIndex = matchesDocs.indexWhere((doc) => doc.id == docId);
-      
+
       if (matchDocIndex == -1) {
         // Document doesn't exist, it's scheduled/queued
         return matchNum;
       }
-      
+
       // Document exists, check if finalized
       final finalized = finalizedMap[docId] ?? false;
       if (!finalized) {
@@ -1101,7 +1130,7 @@ class _StatusFromMatches extends StatelessWidget {
         final scores = scoresMap[docId];
         final redScore = scores?['red'] ?? 0;
         final blueScore = scores?['blue'] ?? 0;
-        
+
         if (redScore == 0 && blueScore == 0) {
           // No scores, this is the next queued match
           return matchNum;
@@ -1199,26 +1228,28 @@ class _WinnerFromMatches extends StatelessWidget {
     final bool redWins = winner.toLowerCase() == 'red';
     final bool blueWins = winner.toLowerCase() == 'blue';
 
-    final List<String> winnerTeams = redWins 
-        ? redTeams 
-        : (blueWins ? blueTeams : <String>[]);
+    final List<String> winnerTeams =
+        redWins ? redTeams : (blueWins ? blueTeams : <String>[]);
 
     if (winnerTeams.isEmpty) {
       return Text('-', style: baseStyle);
     }
 
-    return Wrap(
-      spacing: 8,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children:
           winnerTeams
               .map(
-                (t) => _TeamChip(
-                  teamNumber: t,
-                  background:
-                      redWins
-                          ? const Color(0xFFE53935)
-                          : const Color(0xFF1E88E5),
-                  onTap: () => _openTeamPage(context, t),
+                (t) => Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: _TeamChip(
+                    teamNumber: t,
+                    background:
+                        redWins
+                            ? const Color(0xFFE53935)
+                            : const Color(0xFF1E88E5),
+                    onTap: () => _openTeamPage(context, t),
+                  ),
                 ),
               )
               .toList(),

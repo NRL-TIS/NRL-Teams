@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
               shadowColor: Colors.white.withOpacity(0.06),
 
               // 🔼 Increased so the bigger image has room
-              toolbarHeight: isMobile ? 120 : 140,
+              toolbarHeight: isMobile ? 80 : 100,
 
               centerTitle: false,
               titleSpacing: isMobile ? 8 : 12,
