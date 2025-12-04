@@ -11,22 +11,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-    debugPrint('FlutterError: ${details.exceptionAsString()}');
-    debugPrint('Stack:\n${details.stack}');
-  };
-
-  runZonedGuarded(
-    () {
-      runApp(const NrlApp());
-    },
-    (error, stack) {
-      debugPrint('Uncaught zone error: $error');
-      debugPrintStack(stackTrace: stack);
-    },
-  );
+  runApp(const NrlApp());
 }
 
 class NrlApp extends StatelessWidget {

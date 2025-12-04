@@ -59,7 +59,7 @@ void _parseMatchMapIntoList(
 
 String _buildMatchesDocPrefix(String division, String phase) {
   if (phase == 'championofchampions') {
-    return 'Champion_of_champions_Match_';
+    return 'Champion_Match_';
   }
 
   final lower = division.toLowerCase();
@@ -71,7 +71,7 @@ String _buildMatchesDocPrefix(String division, String phase) {
     case 'semifinal':
       return '${cap}_Semifinal_Match_';
     case 'quarterfinal':
-      return '${cap}_Quaterfinals_Match_';
+      return '${cap}_Quaterfinal_Match_';
     case 'qualification':
     default:
       return '${cap}_Qualification_Match_';
@@ -80,7 +80,7 @@ String _buildMatchesDocPrefix(String division, String phase) {
 
 String _buildScheduleDocId(String division, String phase) {
   if (phase == 'championofchampions') {
-    return 'Championofchampions';
+    return 'champions';
   }
 
   final lower = division.toLowerCase();
@@ -88,11 +88,11 @@ String _buildScheduleDocId(String division, String phase) {
 
   switch (phase) {
     case 'final':
-      return '${cap}_final';
+      return '${lower}_finals';
     case 'semifinal':
-      return '${cap}_semifinal';
+      return '${cap}_semifinals';
     case 'quarterfinal':
-      return '${cap}_quarterfinal';
+      return '${cap}_quarterfinals';
     case 'qualification':
     default:
       return lower;
@@ -130,61 +130,77 @@ class _MatchSchedulePageState extends State<MatchSchedulePage> {
         const SizedBox(height: 4),
 
         Expanded(
-          child: StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('Match Schedule')
-                    .snapshots(),
-            builder: (context, scheduleSnap) {
-              if (scheduleSnap.connectionState == ConnectionState.waiting &&
-                  !scheduleSnap.hasData) {
-                return const Center(child: CircularProgressIndicator());
+          child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('Match Schedule')
+                .doc('current_match')
+                .snapshots(),
+            builder: (context, currentMatchSnap) {
+              // Get current stage
+              String? currentStage;
+              if (currentMatchSnap.hasData && currentMatchSnap.data!.exists) {
+                final data = currentMatchSnap.data!.data();
+                currentStage = data?['current_stage']?.toString();
               }
-
-              if (scheduleSnap.hasError) {
-                return Center(
-                  child: Text(
-                    'Error loading schedule',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.redAccent),
-                  ),
-                );
-              }
-
-              if (!scheduleSnap.hasData || scheduleSnap.data!.docs.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No schedule found.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                  ),
-                );
-              }
-
-              final scheduleDocs = scheduleSnap.data!.docs;
 
               return StreamBuilder<QuerySnapshot>(
                 stream:
                     FirebaseFirestore.instance
-                        .collection('Matches')
+                        .collection('Match Schedule')
                         .snapshots(),
-                builder: (context, matchesSnap) {
-                  final matchesDocs =
-                      matchesSnap.data?.docs ?? <QueryDocumentSnapshot>[];
+                builder: (context, scheduleSnap) {
+                  if (scheduleSnap.connectionState == ConnectionState.waiting &&
+                      !scheduleSnap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _DivisionPhasesView(
-                      key: ValueKey(
-                        '$selectedDivision|$_searchQuery|${scheduleDocs.length}|${matchesDocs.length}',
+                  if (scheduleSnap.hasError) {
+                    return Center(
+                      child: Text(
+                        'Error loading schedule',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.redAccent),
                       ),
-                      division: selectedDivision,
-                      searchQuery: _searchQuery,
-                      scheduleDocs: scheduleDocs,
-                      matchesDocs: matchesDocs,
-                    ),
+                    );
+                  }
+
+                  if (!scheduleSnap.hasData || scheduleSnap.data!.docs.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No schedule found.',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      ),
+                    );
+                  }
+
+                  final scheduleDocs = scheduleSnap.data!.docs;
+
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream:
+                        FirebaseFirestore.instance
+                            .collection('Matches')
+                            .snapshots(),
+                    builder: (context, matchesSnap) {
+                      final matchesDocs =
+                          matchesSnap.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+                      return AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: _DivisionPhasesView(
+                          key: ValueKey(
+                            '$selectedDivision|$_searchQuery|${scheduleDocs.length}|${matchesDocs.length}',
+                          ),
+                          division: selectedDivision,
+                          searchQuery: _searchQuery,
+                          scheduleDocs: scheduleDocs,
+                          matchesDocs: matchesDocs,
+                          currentStage: currentStage,
+                        ),
+                      );
+                    },
                   );
                 },
               );
@@ -366,7 +382,8 @@ class _DivisionPhasesView extends StatelessWidget {
   final String division;
   final String searchQuery;
   final List<QueryDocumentSnapshot> scheduleDocs;
-  final List<QueryDocumentSnapshot> matchesDocs;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> matchesDocs;
+  final String? currentStage;
 
   const _DivisionPhasesView({
     Key? key,
@@ -374,7 +391,67 @@ class _DivisionPhasesView extends StatelessWidget {
     required this.searchQuery,
     required this.scheduleDocs,
     required this.matchesDocs,
+    required this.currentStage,
   }) : super(key: key);
+
+  // Create a map of match document IDs to their scores for quick lookup
+  // Prioritizes red_final_score_with_penalties and blue_final_score_with_penalties
+  Map<String, Map<String, int>> _buildScoresMap() {
+    final Map<String, Map<String, int>> scoresMap = {};
+    
+    for (final doc in matchesDocs) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      
+      // Use red_final_score_with_penalties and blue_final_score_with_penalties (primary)
+      // Fallback to red_final_score and blue_final_score if penalties not available
+      int? redScore = (data['red_final_score_with_penalties'] as num?)?.toInt();
+      int? blueScore = (data['blue_final_score_with_penalties'] as num?)?.toInt();
+      
+      // If penalties scores don't exist, try regular scores
+      if (redScore == null) {
+        redScore = (data['red_final_score'] as num?)?.toInt();
+      }
+      if (blueScore == null) {
+        blueScore = (data['blue_final_score'] as num?)?.toInt();
+      }
+      
+      // Only add to map if at least one score exists
+      if (redScore != null || blueScore != null) {
+        scoresMap[doc.id] = {
+          'red': redScore ?? 0,
+          'blue': blueScore ?? 0,
+        };
+      }
+    }
+    
+    return scoresMap;
+  }
+
+  // Create a map of match document IDs to their finalized status
+  Map<String, bool> _buildFinalizedMap() {
+    final Map<String, bool> finalizedMap = {};
+    
+    for (final doc in matchesDocs) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final finalized = (data['finalized'] as bool?) ?? false;
+      finalizedMap[doc.id] = finalized;
+    }
+    
+    return finalizedMap;
+  }
+
+  // Create a map of match document IDs to their winner field
+  Map<String, String?> _buildWinnerMap() {
+    final Map<String, String?> winnerMap = {};
+    
+    for (final doc in matchesDocs) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final winner = data['winner'] as String?;
+      winnerMap[doc.id] = winner; // Can be 'Red', 'Blue', or null (tie)
+    }
+    
+    return winnerMap;
+  }
 
   List<Map<String, dynamic>> _extractMatchesFromScheduleDoc(
     DocumentSnapshot? doc,
@@ -436,6 +513,11 @@ class _DivisionPhasesView extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
+    // Build maps once for all phases
+    final scoresMap = _buildScoresMap();
+    final finalizedMap = _buildFinalizedMap();
+    final winnerMap = _buildWinnerMap();
+
     final List<Widget> sections = [];
     bool anyFilteredMatch = false;
 
@@ -455,6 +537,13 @@ class _DivisionPhasesView extends StatelessWidget {
         return;
       }
 
+      final allMatches = _extractMatchesFromScheduleDoc(scheduleDoc);
+      
+      // Only show section if it has matches (not empty)
+      if (allMatches.isEmpty) {
+        return;
+      }
+
       if (requireMatchesDocsForVisibility) {
         final matchPrefix = _buildMatchesDocPrefix(division, phase);
         final bool hasAnyMatchDoc = matchesDocs.any(
@@ -465,7 +554,6 @@ class _DivisionPhasesView extends StatelessWidget {
         }
       }
 
-      final allMatches = _extractMatchesFromScheduleDoc(scheduleDoc);
       var filtered = _filterMatches(allMatches, searchQuery);
 
       if (filtered.isEmpty) {
@@ -494,6 +582,11 @@ class _DivisionPhasesView extends StatelessWidget {
                 matches: filtered,
                 division: division,
                 phase: phase,
+                currentStage: currentStage,
+                scoresMap: scoresMap,
+                finalizedMap: finalizedMap,
+                matchesDocs: matchesDocs,
+                winnerMap: winnerMap,
               ),
             ],
           ),
@@ -565,12 +658,22 @@ class _MatchScheduleTable extends StatelessWidget {
   final List<Map<String, dynamic>> matches;
   final String division;
   final String phase;
+  final String? currentStage;
+  final Map<String, Map<String, int>> scoresMap;
+  final Map<String, bool> finalizedMap;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> matchesDocs;
+  final Map<String, String?> winnerMap;
 
   const _MatchScheduleTable({
     Key? key,
     required this.matches,
     required this.division,
     required this.phase,
+    required this.currentStage,
+    required this.scoresMap,
+    required this.finalizedMap,
+    required this.matchesDocs,
+    required this.winnerMap,
   }) : super(key: key);
 
   @override
@@ -713,8 +816,9 @@ class _MatchScheduleTable extends StatelessWidget {
                                 phase: phase,
                                 matchId: matchId,
                                 baseStyle: dataStyleLocal,
-                                initialRedScore: m['redScore'] as int, // NEW
-                                initialBlueScore: m['blueScore'] as int, // NEW
+                                initialRedScore: m['redScore'] as int,
+                                initialBlueScore: m['blueScore'] as int,
+                                scoresMap: scoresMap,
                               ),
                             ),
                           ),
@@ -727,6 +831,11 @@ class _MatchScheduleTable extends StatelessWidget {
                                 phase: phase,
                                 matchId: matchId,
                                 fallbackStatus: status,
+                                currentStage: currentStage,
+                                allMatches: matches,
+                                matchesDocs: matchesDocs,
+                                finalizedMap: finalizedMap,
+                                scoresMap: scoresMap,
                               ),
                             ),
                           ),
@@ -741,8 +850,7 @@ class _MatchScheduleTable extends StatelessWidget {
                                 redTeams: redTeams,
                                 blueTeams: blueTeams,
                                 baseStyle: dataStyleLocal,
-                                initialRedScore: m['redScore'] as int, // NEW
-                                initialBlueScore: m['blueScore'] as int, // NEW
+                                winnerMap: winnerMap,
                               ),
                             ),
                           ),
@@ -815,18 +923,18 @@ class _ScoreCell extends StatelessWidget {
   final String phase;
   final String matchId;
   final TextStyle? baseStyle;
-
-  // NEW
   final int initialRedScore;
   final int initialBlueScore;
+  final Map<String, Map<String, int>> scoresMap;
 
   const _ScoreCell({
     required this.division,
     required this.phase,
     required this.matchId,
     required this.baseStyle,
-    required this.initialRedScore, // NEW
-    required this.initialBlueScore, // NEW
+    required this.initialRedScore,
+    required this.initialBlueScore,
+    required this.scoresMap,
   });
 
   @override
@@ -834,48 +942,34 @@ class _ScoreCell extends StatelessWidget {
     final prefix = _buildMatchesDocPrefix(division, phase);
     final docId = '$prefix$matchId';
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('Matches')
-              .doc(docId)
-              .snapshots(),
-      builder: (context, snapshot) {
-        // start with schedule data (immediate)
-        int redScore = initialRedScore;
-        int blueScore = initialBlueScore;
+    // Look up scores from the map (much faster than individual StreamBuilder)
+    int redScore = initialRedScore;
+    int blueScore = initialBlueScore;
 
-        // override if Matches doc is available
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-          redScore =
-              (data['red_final_score_with_penalties'] as num?)?.toInt() ??
-              redScore;
-          blueScore =
-              (data['blue_final_score_with_penalties'] as num?)?.toInt() ??
-              blueScore;
-        }
+    final scores = scoresMap[docId];
+    if (scores != null) {
+      redScore = scores['red'] ?? initialRedScore;
+      blueScore = scores['blue'] ?? initialBlueScore;
+    }
 
-        final bool redWins = redScore > blueScore;
-        final bool blueWins = blueScore > redScore;
+    final bool redWins = redScore > blueScore;
+    final bool blueWins = blueScore > redScore;
 
-        TextStyle style(bool isWinner) =>
-            (baseStyle ?? const TextStyle()).copyWith(
-              fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
-              decoration:
-                  isWinner ? TextDecoration.underline : TextDecoration.none,
-            );
-
-        return Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: redScore.toString(), style: style(redWins)),
-              TextSpan(text: '  -  ', style: baseStyle),
-              TextSpan(text: blueScore.toString(), style: style(blueWins)),
-            ],
-          ),
+    TextStyle style(bool isWinner) =>
+        (baseStyle ?? const TextStyle()).copyWith(
+          fontWeight: isWinner ? FontWeight.w700 : FontWeight.w500,
+          decoration:
+              isWinner ? TextDecoration.underline : TextDecoration.none,
         );
-      },
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: redScore.toString(), style: style(redWins)),
+          TextSpan(text: '  -  ', style: baseStyle),
+          TextSpan(text: blueScore.toString(), style: style(blueWins)),
+        ],
+      ),
     );
   }
 }
@@ -933,58 +1027,139 @@ class _StatusFromMatches extends StatelessWidget {
   final String phase;
   final String matchId;
   final String fallbackStatus;
+  final String? currentStage;
+  final List<Map<String, dynamic>> allMatches;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> matchesDocs;
+  final Map<String, bool> finalizedMap;
+  final Map<String, Map<String, int>> scoresMap;
 
   const _StatusFromMatches({
     required this.division,
     required this.phase,
     required this.matchId,
     required this.fallbackStatus,
+    required this.currentStage,
+    required this.allMatches,
+    required this.matchesDocs,
+    required this.finalizedMap,
+    required this.scoresMap,
   });
+
+  bool _isCurrentStage() {
+    if (currentStage == null) return false;
+    
+    final normalizedCurrentStage = currentStage!.toLowerCase().replaceAll(' ', '_');
+    final normalizedPhase = phase.toLowerCase();
+    
+    // Check if this phase matches current stage
+    if (normalizedCurrentStage == normalizedPhase) return true;
+    
+    // Handle qualification matches (alpha/bravo -> qualification)
+    if ((normalizedCurrentStage == 'alpha' || normalizedCurrentStage == 'bravo' || normalizedCurrentStage == 'qualification') &&
+        normalizedPhase == 'qualification') {
+      return true;
+    }
+    
+    // Check if current stage contains this phase or vice versa
+    if (normalizedCurrentStage.contains(normalizedPhase) || normalizedPhase.contains(normalizedCurrentStage)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  String? _getQueuedMatchId() {
+    if (!_isCurrentStage()) return null;
+    
+    // Find the first match that is scheduled (not running, not completed)
+    // This will be the "queued" match (next to be played)
+    // Sort matches by matchId to get the next one in order
+    final sortedMatches = List<Map<String, dynamic>>.from(allMatches);
+    sortedMatches.sort((a, b) {
+      final aId = int.tryParse(a['matchId'].toString()) ?? 0;
+      final bId = int.tryParse(b['matchId'].toString()) ?? 0;
+      return aId.compareTo(bId);
+    });
+    
+    for (final match in sortedMatches) {
+      final matchNum = match['matchId'].toString();
+      final prefix = _buildMatchesDocPrefix(division, phase);
+      final docId = '$prefix$matchNum';
+      
+      // Check if this match document exists
+      final matchDocIndex = matchesDocs.indexWhere((doc) => doc.id == docId);
+      
+      if (matchDocIndex == -1) {
+        // Document doesn't exist, it's scheduled/queued
+        return matchNum;
+      }
+      
+      // Document exists, check if finalized
+      final finalized = finalizedMap[docId] ?? false;
+      if (!finalized) {
+        // Check if it has scores (running) or not (scheduled/queued)
+        final scores = scoresMap[docId];
+        final redScore = scores?['red'] ?? 0;
+        final blueScore = scores?['blue'] ?? 0;
+        
+        if (redScore == 0 && blueScore == 0) {
+          // No scores, this is the next queued match
+          return matchNum;
+        }
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final prefix = _buildMatchesDocPrefix(division, phase);
     final docId = '$prefix$matchId';
+    final isCurrentStage = _isCurrentStage();
+    final queuedMatchId = _getQueuedMatchId();
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('Matches')
-              .doc(docId)
-              .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || !snapshot.data!.exists) {
-          return _StatusChip(status: fallbackStatus);
-        }
+    // Look up match document from matchesDocs (much faster than individual StreamBuilder)
+    final matchDocIndex = matchesDocs.indexWhere((doc) => doc.id == docId);
+    final bool docExists = matchDocIndex != -1;
+    final bool finalized = docExists ? (finalizedMap[docId] ?? false) : false;
 
-        final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+    String status;
 
-        final bool finalized = (data['finalized'] as bool?) ?? false;
+    if (!docExists) {
+      // Document doesn't exist
+      if (isCurrentStage && queuedMatchId == matchId) {
+        status = 'Queued';
+      } else {
+        status = fallbackStatus;
+      }
+    } else if (finalized) {
+      // If finalized is true, always show Completed
+      status = 'Completed';
+    } else {
+      // Document exists but not finalized
+      if (!isCurrentStage) {
+        // Not current stage, show Scheduled
+        status = 'Scheduled';
+      } else {
+        // Current stage - check if running or queued
+        final scores = scoresMap[docId];
+        final int redScore = scores?['red'] ?? 0;
+        final int blueScore = scores?['blue'] ?? 0;
 
-        final int redScore =
-            (data['red_final_score_with_penalties'] as num?)?.toInt() ?? 0;
-        final int blueScore =
-            (data['blue_final_score_with_penalties'] as num?)?.toInt() ?? 0;
-
-        String status;
-
-        if (!finalized) {
-          if (redScore == 0 && blueScore == 0) {
-            status = 'Scheduled';
-          } else {
-            status = 'Running';
-          }
+        if (redScore > 0 || blueScore > 0) {
+          // Has scores, match is running
+          status = 'Running';
+        } else if (queuedMatchId == matchId) {
+          // This is the next match to be played
+          status = 'Queued';
         } else {
-          if (redScore == blueScore) {
-            status = 'Completed';
-          } else {
-            status = 'Completed';
-          }
+          // Scheduled but not queued yet
+          status = 'Scheduled';
         }
+      }
+    }
 
-        return _StatusChip(status: status);
-      },
-    );
+    return _StatusChip(status: status);
   }
 }
 
@@ -995,10 +1170,7 @@ class _WinnerFromMatches extends StatelessWidget {
   final List<String> redTeams;
   final List<String> blueTeams;
   final TextStyle? baseStyle;
-
-  // NEW
-  final int initialRedScore;
-  final int initialBlueScore;
+  final Map<String, String?> winnerMap;
 
   const _WinnerFromMatches({
     required this.division,
@@ -1007,8 +1179,7 @@ class _WinnerFromMatches extends StatelessWidget {
     required this.redTeams,
     required this.blueTeams,
     required this.baseStyle,
-    required this.initialRedScore, // NEW
-    required this.initialBlueScore, // NEW
+    required this.winnerMap,
   });
 
   @override
@@ -1016,53 +1187,41 @@ class _WinnerFromMatches extends StatelessWidget {
     final prefix = _buildMatchesDocPrefix(division, phase);
     final docId = '$prefix$matchId';
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('Matches')
-              .doc(docId)
-              .snapshots(),
-      builder: (context, snapshot) {
-        int redScore = initialRedScore;
-        int blueScore = initialBlueScore;
+    // Get winner from the map (can be 'Red', 'Blue', or null for tie)
+    final String? winner = winnerMap[docId];
 
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-          redScore =
-              (data['red_final_score_with_penalties'] as num?)?.toInt() ??
-              redScore;
-          blueScore =
-              (data['blue_final_score_with_penalties'] as num?)?.toInt() ??
-              blueScore;
-        }
+    // If no winner field or it's null (tie), show '-'
+    if (winner == null || winner.isEmpty) {
+      return Text('-', style: baseStyle);
+    }
 
-        final bool redWins = redScore > blueScore;
-        final bool blueWins = blueScore > redScore;
+    // Determine which teams won based on the winner field
+    final bool redWins = winner.toLowerCase() == 'red';
+    final bool blueWins = winner.toLowerCase() == 'blue';
 
-        final winnerTeams =
-            redWins ? redTeams : (blueWins ? blueTeams : <String>[]);
+    final List<String> winnerTeams = redWins 
+        ? redTeams 
+        : (blueWins ? blueTeams : <String>[]);
 
-        if (winnerTeams.isEmpty) {
-          return Text('-', style: baseStyle);
-        }
+    if (winnerTeams.isEmpty) {
+      return Text('-', style: baseStyle);
+    }
 
-        return Wrap(
-          spacing: 8,
-          children:
-              winnerTeams
-                  .map(
-                    (t) => _TeamChip(
-                      teamNumber: t,
-                      background:
-                          redWins
-                              ? const Color(0xFFE53935)
-                              : const Color(0xFF1E88E5),
-                      onTap: () => _openTeamPage(context, t),
-                    ),
-                  )
-                  .toList(),
-        );
-      },
+    return Wrap(
+      spacing: 8,
+      children:
+          winnerTeams
+              .map(
+                (t) => _TeamChip(
+                  teamNumber: t,
+                  background:
+                      redWins
+                          ? const Color(0xFFE53935)
+                          : const Color(0xFF1E88E5),
+                  onTap: () => _openTeamPage(context, t),
+                ),
+              )
+              .toList(),
     );
   }
 }

@@ -146,7 +146,7 @@ class IndividualMatchSchedule extends StatelessWidget {
     final stageConfig = [
       {
         'stage': 'champions_of_champions',
-        'docIds': ['champions_of_champions'],
+        'docIds': ['champions'],
         'label': 'Champions of Champions',
       },
       {
@@ -160,23 +160,23 @@ class IndividualMatchSchedule extends StatelessWidget {
         'label': 'Bravo Finals',
       },
       {
-        'stage': 'alpha_semi_finals',
-        'docIds': ['alpha_semi_finals'],
+        'stage': 'alpha_semifinals',
+        'docIds': ['Alpha_semifinals'],
         'label': 'Alpha Semi Finals',
       },
       {
-        'stage': 'bravo_semi_finals',
-        'docIds': ['bravo_semi_finals'],
+        'stage': 'bravo_semifinals',
+        'docIds': ['Bravo_semifinals'],
         'label': 'Bravo Semi Finals',
       },
       {
-        'stage': 'alpha_quaterfinals',
-        'docIds': ['alpha_quaterfinals'],
+        'stage': 'alpha_quarterfinals',
+        'docIds': ['Alpha_quarterfinals'],
         'label': 'Alpha Quarterfinals',
       },
       {
-        'stage': 'bravo_quaterfinals',
-        'docIds': ['bravo_quaterfinals'],
+        'stage': 'bravo_quarterfinals',
+        'docIds': ['Bravo_quarterfinals'],
         'label': 'Bravo Quarterfinals',
       },
       {
@@ -505,20 +505,26 @@ class _MatchCard extends StatelessWidget {
     final String stageName = match['stageName'].toString();
 
     // Determine phase for fetching live scores
+    // Check more specific phases first to avoid false matches
     String phase = 'qualification';
-    if (stageName.contains('final')) {
-      phase = 'final';
-    } else if (stageName.contains('semi')) {
-      phase = 'semifinal';
-    } else if (stageName.contains('quarter')) {
-      phase = 'quarterfinal';
-    } else if (stageName.contains('champion')) {
+    final stageNameLower = stageName.toLowerCase();
+    if (stageNameLower.contains('champion')) {
       phase = 'championofchampions';
+    } else if (stageNameLower.contains('quarter')) {
+      phase = 'quarterfinal';
+    } else if (stageNameLower.contains('semi')) {
+      phase = 'semifinal';
+    } else if (stageNameLower.contains('final')) {
+      phase = 'final';
     }
 
+    // Determine division from docId (Match Schedule document ID)
     String division = 'alpha';
-    if (docId.toLowerCase().contains('bravo')) {
+    final docIdLower = docId.toLowerCase();
+    if (docIdLower.contains('bravo')) {
       division = 'bravo';
+    } else if (docIdLower.contains('alpha')) {
+      division = 'alpha';
     }
 
     return Container(
@@ -603,7 +609,7 @@ class _ScoreDisplay extends StatelessWidget {
 
   String _buildMatchesDocPrefix(String division, String phase) {
     if (phase == 'championofchampions') {
-      return 'Champion_of_champions_Match_';
+      return 'Champion_Match_';
     }
 
     final lower = division.toLowerCase();
@@ -611,11 +617,11 @@ class _ScoreDisplay extends StatelessWidget {
 
     switch (phase) {
       case 'final':
-        return '${cap}_final_Match_';
+        return '${cap}_Final_Match_';
       case 'semifinal':
-        return '${cap}_semifinal_Match_';
+        return '${cap}_Semifinal_Match_';
       case 'quarterfinal':
-        return '${cap}_quarterfinals_Match_';
+        return '${cap}_Quaterfinal_Match_';
       case 'qualification':
       default:
         return '${cap}_Qualification_Match_';
@@ -628,26 +634,11 @@ class _ScoreDisplay extends StatelessWidget {
     final prefix = _buildMatchesDocPrefix(division, phase);
     final docId = '$prefix$matchId';
 
-    // Initial scores from schedule (final scores if match is completed)
+    // Initial scores from schedule (fallback if no live scores)
     final int initialRedScore = match['redScore'] as int;
     final int initialBlueScore = match['blueScore'] as int;
 
-    // Check if match is completed (has scores in schedule)
-    final bool isCompleted = initialRedScore > 0 || initialBlueScore > 0;
-
-    // If completed, use schedule scores (final)
-    // If not completed, check for live scores from Matches collection
-    if (isCompleted) {
-      return _buildScoreRow(
-        context,
-        initialRedScore,
-        initialBlueScore,
-        redTeams,
-        blueTeams,
-      );
-    }
-
-    // Match is live/ongoing, fetch from Matches collection
+    // Always fetch from Matches collection for live updates
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('Matches')
@@ -656,15 +647,37 @@ class _ScoreDisplay extends StatelessWidget {
       builder: (context, snapshot) {
         int redScore = initialRedScore;
         int blueScore = initialBlueScore;
+        String? winner;
 
-        // Override with live scores if available
+        // Override with live scores and winner if available
         if (snapshot.hasData && snapshot.data!.exists) {
           final data = snapshot.data!.data();
-          final liveRedScore = (data?['red_final_score'] as num?)?.toInt();
-          final liveBlueScore = (data?['blue_final_score'] as num?)?.toInt();
-
-          if (liveRedScore != null) redScore = liveRedScore;
-          if (liveBlueScore != null) blueScore = liveBlueScore;
+          
+          // Use red_final_score_with_penalties and blue_final_score_with_penalties (primary)
+          // Fallback to red_final_score and blue_final_score if penalties not available
+          final liveRedScore = (data?['red_final_score_with_penalties'] as num?)?.toInt();
+          final liveBlueScore = (data?['blue_final_score_with_penalties'] as num?)?.toInt();
+          
+          // If penalties scores exist, use them; otherwise try regular scores
+          if (liveRedScore != null) {
+            redScore = liveRedScore;
+          } else {
+            final fallbackRed = (data?['red_final_score'] as num?)?.toInt();
+            if (fallbackRed != null) redScore = fallbackRed;
+          }
+          
+          if (liveBlueScore != null) {
+            blueScore = liveBlueScore;
+          } else {
+            final fallbackBlue = (data?['blue_final_score'] as num?)?.toInt();
+            if (fallbackBlue != null) blueScore = fallbackBlue;
+          }
+          
+          // Get winner field from document ('Red', 'Blue', or null for tie)
+          winner = data?['winner'] as String?;
+        } else if (snapshot.hasError) {
+          // Document doesn't exist or error occurred - use initial scores
+          // This is expected for matches that haven't started yet
         }
 
         return _buildScoreRow(
@@ -673,6 +686,7 @@ class _ScoreDisplay extends StatelessWidget {
           blueScore,
           redTeams,
           blueTeams,
+          winner,
         );
       },
     );
@@ -684,27 +698,38 @@ class _ScoreDisplay extends StatelessWidget {
     int blueScore,
     List<String> redTeams,
     List<String> blueTeams,
+    String? winner,
   ) {
     final bool inRed = redTeams.contains(teamNumber);
     final bool inBlue = blueTeams.contains(teamNumber);
-    final bool redWins = redScore > blueScore;
-    final bool blueWins = blueScore > redScore;
 
     String resultLabel;
     Color resultColor;
 
+    // If no scores, match is scheduled
     if (redScore == 0 && blueScore == 0) {
       resultLabel = 'Scheduled';
       resultColor = Colors.white70;
-    } else if (redScore == blueScore) {
+    } else if (winner == null || winner.isEmpty) {
+      // Match has scores but no winner field = actual tie/draw
       resultLabel = 'Draw';
       resultColor = Colors.white70;
-    } else if ((redWins && inRed) || (blueWins && inBlue)) {
-      resultLabel = 'Win';
-      resultColor = Colors.greenAccent;
     } else {
-      resultLabel = 'Loss';
-      resultColor = Colors.redAccent;
+      // Use winner field to determine result ('Red' or 'Blue')
+      final String winnerLower = winner.toLowerCase().trim();
+      final bool redWins = winnerLower == 'red';
+      final bool blueWins = winnerLower == 'blue';
+      
+      if (redWins && inRed) {
+        resultLabel = 'Win';
+        resultColor = Colors.greenAccent;
+      } else if (blueWins && inBlue) {
+        resultLabel = 'Win';
+        resultColor = Colors.greenAccent;
+      } else {
+        resultLabel = 'Loss';
+        resultColor = Colors.redAccent;
+      }
     }
 
     return Row(

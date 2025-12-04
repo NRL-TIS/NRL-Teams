@@ -954,48 +954,48 @@ class _TeamInfoCard extends StatelessWidget {
           //   ),
           // ),
           // ───────────────────── GROUP PHOTO (FROM FIRESTORE URL) ─────────────────────
-          if (groupPhotoStorageUrl != null && groupPhotoStorageUrl!.isNotEmpty)
-            Center(
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  color: Colors.white10,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.12)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Image.network(
-                    groupPhotoStorageUrl!,
-                    fit: BoxFit.cover, 
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white38,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      debugPrint(
-                        '🚫 Error displaying group photo for $teamNumber: $error',
-                      );
-                      return const Center(
-                        child: Icon(
-                          Icons.groups,
-                          size: 72,
-                          color: Colors.white54,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
+          // if (groupPhotoStorageUrl != null && groupPhotoStorageUrl!.isNotEmpty)
+          //   Center(
+          //     child: Container(
+          //       width: 220,
+          //       height: 220,
+          //       decoration: BoxDecoration(
+          //         color: Colors.white10,
+          //         borderRadius: BorderRadius.circular(24),
+          //         border: Border.all(color: Colors.white.withOpacity(0.12)),
+          //       ),
+          //       child: ClipRRect(
+          //         borderRadius: BorderRadius.circular(24),
+          //         child: Image.network(
+          //           groupPhotoStorageUrl!,
+          //           fit: BoxFit.cover,
+          //           loadingBuilder: (context, child, loadingProgress) {
+          //             if (loadingProgress == null) return child;
+          //             return const Center(
+          //               child: CircularProgressIndicator(
+          //                 strokeWidth: 2,
+          //                 valueColor: AlwaysStoppedAnimation<Color>(
+          //                   Colors.white38,
+          //                 ),
+          //               ),
+          //             );
+          //           },
+          //           errorBuilder: (context, error, stackTrace) {
+          //             debugPrint(
+          //               '🚫 Error displaying group photo for $teamNumber: $error',
+          //             );
+          //             return const Center(
+          //               child: Icon(
+          //                 Icons.groups,
+          //                 size: 72,
+          //                 color: Colors.white54,
+          //               ),
+          //             );
+          //           },
+          //         ),
+          //       ),
+          //     ),
+          //   ),
         ],
       ),
     );
