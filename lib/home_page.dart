@@ -55,7 +55,7 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0.5,
               shadowColor: Colors.white.withOpacity(0.06),
-              toolbarHeight: isMobile ? 100 : 110,
+              toolbarHeight: isMobile ? 110 : 110,
               centerTitle: false,
               titleSpacing: isMobile ? 8 : 12,
               leadingWidth: isMobile ? 56 : 80,
@@ -86,11 +86,10 @@ class _HomePageState extends State<HomePage> {
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // Line 1: "National"
                                   Text(
-                                    'National Robotics',
+                                    'National',
                                     maxLines: 1,
-                                    // you can also remove overflow if you want:
-                                    // overflow: TextOverflow.ellipsis,
                                     style: Theme.of(
                                       context,
                                     ).textTheme.titleLarge?.copyWith(
@@ -100,8 +99,10 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
+
+                                  // Line 2: "Robotics League"
                                   Text(
-                                    'League',
+                                    'Robotics League',
                                     maxLines: 1,
                                     style: Theme.of(
                                       context,
@@ -112,6 +113,8 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                   ),
                                   const SizedBox(height: 2),
+
+                                  // Line 3: "Championship Portal"
                                   Text(
                                     'Championship Portal',
                                     maxLines: 1,
@@ -130,29 +133,17 @@ class _HomePageState extends State<HomePage> {
 
                           const SizedBox(width: 8),
 
-                          // Images on the extreme right
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // small oboc.png
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  left: 54,
-                                ), // increase to 12, 16, etc.
-                                child: Image.asset(
-                                  'assets/oboc.png',
-                                  height: 22,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              // bigger o360o.png, tall enough to visually span lines 2 & 3
-                              Image.asset(
-                                'assets/o360o.png',
-                                height: 50, // tweak 36–48 as per how it looks
+                          // 🔹 GIF on the extreme right (loops by default)
+                          SizedBox(
+                            height: 120, // tweak if needed
+                            width: 120, // tweak if needed
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: Image.asset(
+                                'assets/boco360.gif',
                                 fit: BoxFit.contain,
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
@@ -198,6 +189,7 @@ class _HomePageState extends State<HomePage> {
               ),
 
               // 🔹 Actions: only on laptop/desktop, boc.png ~1.25x
+              // 🔹 Actions: only on laptop/desktop
               actions:
                   isMobile
                       ? []
@@ -205,11 +197,15 @@ class _HomePageState extends State<HomePage> {
                         Padding(
                           padding: const EdgeInsets.only(right: 16),
                           child: SizedBox(
-                            // make this ~1.25x your old size
-                            height: 62,
-                            width: 150,
+                            // ⬇️ Bigger box for ~2.5x image, but still no overflow
+                            height:
+                                130, // same as toolbarHeight so it uses full height
+                            width:
+                                280, // wider than before, makes logo look ~2.5x
                             child: FittedBox(
-                              fit: BoxFit.contain,
+                              fit:
+                                  BoxFit
+                                      .contain, // ensures full image is always visible
                               child: Image.asset('assets/boc.png'),
                             ),
                           ),
