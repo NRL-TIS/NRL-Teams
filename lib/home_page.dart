@@ -55,10 +55,7 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               elevation: 0.5,
               shadowColor: Colors.white.withOpacity(0.06),
-
-              // 🔼 Increased so the bigger image has room
-              toolbarHeight: isMobile ? 80 : 100,
-
+              toolbarHeight: isMobile ? 100 : 110,
               centerTitle: false,
               titleSpacing: isMobile ? 8 : 12,
               leadingWidth: isMobile ? 56 : 80,
@@ -69,9 +66,100 @@ class _HomePageState extends State<HomePage> {
                   child: _BrandIcon(),
                 ),
               ),
+
+              // 🔹 Different title layouts for mobile vs laptop
               title: LayoutBuilder(
-                builder:
-                    (_, cc) => FittedBox(
+                builder: (_, cc) {
+                  if (isMobile) {
+                    // ----- MOBILE APPBAR TITLE -----
+                    return SizedBox(
+                      width: cc.maxWidth,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Text block on the left (3 lines)
+                          Expanded(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'National Robotics',
+                                    maxLines: 1,
+                                    // you can also remove overflow if you want:
+                                    // overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge?.copyWith(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'League',
+                                    maxLines: 1,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge?.copyWith(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Championship Portal',
+                                    maxLines: 1,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge?.copyWith(
+                                      color: Colors.white.withOpacity(0.75),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          // Images on the extreme right
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // small oboc.png
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 54,
+                                ), // increase to 12, 16, etc.
+                                child: Image.asset(
+                                  'assets/oboc.png',
+                                  height: 22,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              // bigger o360o.png, tall enough to visually span lines 2 & 3
+                              Image.asset(
+                                'assets/o360o.png',
+                                height: 50, // tweak 36–48 as per how it looks
+                                fit: BoxFit.contain,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    // ----- LAPTOP / DESKTOP APPBAR TITLE -----
+                    return FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Column(
@@ -84,7 +172,7 @@ class _HomePageState extends State<HomePage> {
                             style: Theme.of(
                               context,
                             ).textTheme.titleLarge?.copyWith(
-                              fontSize: isMobile ? 20 : 26,
+                              fontSize: 26,
                               fontWeight: FontWeight.w800,
                               color: Colors.white,
                             ),
@@ -98,31 +186,35 @@ class _HomePageState extends State<HomePage> {
                               context,
                             ).textTheme.labelLarge?.copyWith(
                               color: Colors.white.withOpacity(0.75),
-                              fontSize: isMobile ? 12 : 13,
+                              fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                    ),
+                    );
+                  }
+                },
               ),
 
-              // 👉 Right-side big logo (2.5x from before)
-              actions: [
-                Padding(
-                  padding: EdgeInsets.only(right: isMobile ? 8 : 16),
-                  child: SizedBox(
-                    // old: 40 x 80 (mobile), 50 x 110 (desktop)
-                    // now: 2.5x → 100 x 200, 125 x 275
-                    height: isMobile ? 50 : 100,
-                    width: isMobile ? 175 : 250,
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: Image.asset('assets/boc.png'),
-                    ),
-                  ),
-                ),
-              ],
+              // 🔹 Actions: only on laptop/desktop, boc.png ~1.25x
+              actions:
+                  isMobile
+                      ? []
+                      : [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: SizedBox(
+                            // make this ~1.25x your old size
+                            height: 62,
+                            width: 150,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: Image.asset('assets/boc.png'),
+                            ),
+                          ),
+                        ),
+                      ],
 
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(0.5),
@@ -132,6 +224,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+
             body: SafeArea(
               child: _buildBody(isMobile: isMobile, isTablet: isTablet),
             ),
